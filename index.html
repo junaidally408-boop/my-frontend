@@ -692,7 +692,11 @@ async function loadData() {
     if (tasksRes.ok) state.tasks = await tasksRes.json();
 
     const teamRes = await fetch(baseUrl + '/api/team', { headers });
-    if (teamRes.ok) state.team = await teamRes.json();
+    if (teamRes.ok) {
+      const teamData = await teamRes.json();
+      // 🔥 FIX: MongoDB _id ko id mein map karein
+      state.team = teamData.map(u => ({ ...u, id: u._id }));
+    }
 
     state.isDataLoaded = true;
     console.log('✅ Data loaded successfully!');
@@ -745,6 +749,21 @@ const NAV={
 };
 
 function render(){
+  // ===== PAGE REFRESH PAR SESSION RESTORE KAREIN =====
+  const savedToken = localStorage.getItem('va_token');
+  const savedUser = localStorage.getItem('va_user');
+  if (savedToken && savedUser && !state.isLoggedIn) {
+    try {
+      state.authToken = savedToken;
+      state.authUser = JSON.parse(savedUser);
+      state.isLoggedIn = true;
+      state.isDataLoaded = false;
+      console.log('✅ Session restored from localStorage');
+    } catch (e) {
+      console.error('❌ Failed to restore session', e);
+    }
+  }
+
   // ===== SIDEBAR AUR TOPBAR KO SAHI TAREEQE SE HIDE/SHOW KAREIN =====
   const sidebar = document.getElementById('sidebar');
   const topbar = document.querySelector('.topbar');
@@ -1301,6 +1320,8 @@ function renderLogin() {
       
       state.authToken = data.token;
       state.authUser = data.user;
+      localStorage.setItem('va_token', data.token);
+      localStorage.setItem('va_user', JSON.stringify(data.user));
       state.isLoggedIn = true;
       state.view = data.user.role === 'client' ? 'clienthome' : 'dashboard';
       state.isDataLoaded = false;
