@@ -899,10 +899,24 @@ function renderTeam(){
   const isOwner=state.role==='admin';
   app.innerHTML='<div class="page-head"><div><div class="eyebrow">'+(isOwner?'Owner':'Admin')+' Access</div><h1>Team & Access</h1><p>'+(isOwner?'Full control over team members.':'Manage team members.')+'</p></div>'+(isOwner?'<div class="head-actions"><button class="btn" id="inviteBtn">＋ Invite member</button></div>':'')+'</div><div class="info-note"><span>🔐</span><div><b>Access levels.</b> Owner — full control. Admin — clients, hours, reports & invoices; no team/settings. User — staff who log hours worked each day. Client — sees only their own sheet, never other clients or users.</div></div><div class="panel"><table><thead><tr><th>Member</th><th>Email</th><th>Role</th><th>Linked client</th><th>Status</th><th></th></tr></thead><tbody>'+state.team.map(m=>'<tr><td><div class="cli"><span class="ca '+(m.role==='admin'?'grad':'')+'">'+initials(m.name)+'</span><div class="cn">'+m.name+'</div></div></td><td class="ce">'+m.email+'</td><td><select class="sel" data-role-for="'+m.id+'" '+(m.email===state.authUser?.email||!isOwner?'disabled':'')+'>'+roleOpts.map(r=>'<option value="'+r+'"'+(m.role===r?' selected':'')+'>'+roleLabel(r)+'</option>').join('')+'</select></td><td class="ce">'+(m.role==='client'?((state.clients.find(c=>c.id===m.clientId)||{}).name||'—'):m.role==='user'?((m.assigned||[]).length+' clients'):'—')+'</td><td><span class="pill '+(m.status==='active'?'ok':'low')+'"><span class="d"></span>'+(m.status==='active'?'Active':'Invited')+'</span></td><td><div class="row-actions">'+(m.role==='user'&&isOwner?'<button class="icon-btn" data-assign="'+m.id+'">👥</button>':'')+(m.email===state.authUser?.email?'<span class="ce">You</span>':(isOwner?'<button class="icon-btn" data-rm="'+m.id+'">🗑</button>':''))+'</div></td></tr>').join('')+'</tbody></table></div>';
   if(isOwner){
-    app.querySelectorAll('[data-role-for]').forEach(sel=>sel.onchange=e=>{const m=state.team.find(x=>x.id===sel.dataset.roleFor);m.role=e.target.value;toast(m.name+' is now '+roleLabel(e.target.value),'brand');render();});
-    app.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{const m=state.team.find(x=>x.id===b.dataset.rm);state.team=state.team.filter(x=>x.id!==b.dataset.rm);toast('Removed member','brand');render();});
-    app.querySelectorAll('[data-assign]').forEach(b=>b.onclick=()=>openAssign(b.dataset.assign));
-    document.getElementById('inviteBtn').onclick=openInvite;
+       app.querySelectorAll('[data-rm]').forEach(b => {
+      b.onclick = async (e) => {
+        e.stopPropagation();
+        const id = b.dataset.rm;
+        if (!confirm('Are you sure you want to remove this user?')) return;
+        try {
+          const res = await fetch(`https://my-backend-ptmb.onrender.com/api/users/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${state.authToken}` }
+          });
+          if (!res.ok) throw new Error('Failed to remove');
+          toast('User removed successfully!', 'brand');
+          state.isDataLoaded = false;
+          render();
+        } catch (err) {
+          toast('Error: ' + err.message);
+        }
+      };
   }
 }
 
