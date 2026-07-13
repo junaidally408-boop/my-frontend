@@ -110,7 +110,6 @@
   .btn-danger{background:var(--highlight);color:#fff;border:none;animation:none}
   .btn-danger:hover{background:var(--highlight-dark);transform:translateY(-2px);box-shadow:0 4px 16px rgba(44,95,138,0.25)}
 
-  /* ===== COMMENT NOTIFICATION POPUP ===== */
   .comment-notifications{position:fixed;top:76px;right:20px;z-index:200;display:flex;flex-direction:column;gap:10px;max-width:400px;width:100%;pointer-events:none}
   .comment-notifications .comment-notification{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 12px 40px rgba(0,0,0,0.12);padding:16px 18px;pointer-events:auto;animation:fadeInRight 0.4s ease;border-left:4px solid var(--highlight);transition:all 0.3s ease}
   .comment-notifications .comment-notification:hover{transform:translateX(-4px);box-shadow:0 16px 48px rgba(0,0,0,0.15)}
@@ -578,7 +577,7 @@
 
 <script>
 // ============================================================
-//  STATE
+//  STATE (Updated with Auth)
 // ============================================================
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun'];
 const fmt=n=>(Math.round(n*10)/10).toLocaleString();
@@ -641,6 +640,10 @@ let state={
     {ic:'👤',text:'Aria Interiors added as a client',d:'1 week ago',amt:0},
   ],
   trend:[22,26,24,28,31,19],
+  // AUTH STATE ADDED
+  isLoggedIn: false,
+  authUser: null,
+  authToken: '',
   tasks: [
     {
       id:'t1', title:'Update landing page copy', description:'Client requested new headlines for the hero section.',
@@ -687,7 +690,7 @@ let state={
 };
 
 // ============================================================
-//  HELPERS
+//  HELPERS (FULL)
 // ============================================================
 const remaining=c=>c.purchased-c.consumed;
 const pct=c=>c.purchased?Math.max(0,Math.min(100,remaining(c)/c.purchased*100)):0;
@@ -710,233 +713,33 @@ function dateFilterBar(idPrefix,from,to){return '<div class="date-filter"><input
 function wireDateFilter(idPrefix,onChange){const f=document.getElementById(idPrefix+'From'),t=document.getElementById(idPrefix+'To'),c=document.getElementById(idPrefix+'Clear');if(f)f.onchange=()=>onChange(f.value,t.value);if(t)t.onchange=()=>onChange(f.value,t.value);if(c)c.onclick=()=>onChange('','');}
 function barChart(vals,labels,w=520,h=150){const pad=22,base=h-26,top=22,max=Math.max(1,...vals),n=vals.length,gap=8,bw=(w-pad*2-gap*(n-1))/n;let bars='';for(let i=0;i<n;i++){const bh=(vals[i]/max)*(base-top),x=pad+i*(bw+gap),y=base-bh;bars+='<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+Math.max(2,bh)+'" rx="4" fill="url(#bg)"/>';bars+='<text x="'+(x+bw/2)+'" y="'+(h-6)+'" text-anchor="middle" font-size="10" fill="var(--slate)" font-weight="600">'+labels[i]+'</text>';bars+='<text x="'+(x+bw/2)+'" y="'+(y-4)+'" text-anchor="middle" font-size="10" fill="var(--ink)" font-weight="800">'+(vals[i]?fmt(vals[i]):'')+'</text>';}return '<svg width="100%" viewBox="0 0 '+w+' '+h+'"><defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A2A4A"/><stop offset="1" stop-color="#4A7A9E"/></linearGradient></defs>'+bars+'</svg>';}
 function donutSVG(percent,color){const C=2*Math.PI*70,off=C*(1-percent/100);return '<svg width="170" height="170" viewBox="0 0 170 170"><defs><linearGradient id="ud" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1A2A4A"/><stop offset="1" stop-color="#4A7A9E"/></linearGradient></defs><circle cx="85" cy="85" r="70" fill="none" stroke="var(--canvas)" stroke-width="14"/><circle cx="85" cy="85" r="70" fill="none" stroke="'+(color||'url(#ud)')+'" stroke-width="14" stroke-linecap="round" stroke-dasharray="'+C+'" stroke-dashoffset="'+off+'" transform="rotate(-90 85 85)" style="transition:stroke-dashoffset .7s ease"/></svg>';}
-
-function timesheetTable(rows,showClient,showBy){
-  if(!rows.length)return '<div class="empty" style="padding:30px"><div class="big">No entries yet</div></div>';
-  return '<table><thead><tr><th>Date</th>'+(showClient?'<th>Client</th>':'')+'<th>Hours</th><th>Note</th>'+(showBy?'<th>Logged by</th>':'')+'</tr></thead><tbody>'+rows.map(l=>{const c=state.clients.find(x=>x.id===l.clientId)||{};return '<tr><td class="num" style="font-weight:700">'+fmtDate(l.date)+'</td>'+(showClient?'<td>'+(c.name||'—')+'</td>':'')+'<td class="num" style="font-weight:800;color:var(--highlight)">'+fmtHM(l.hours)+'</td><td>'+(l.note||'—')+'</td>'+(showBy?'<td class="ce">'+(l.by||'—')+'</td>':'')+'</tr>';}).join('')+'</tbody></table>';
-}
+function timesheetTable(rows,showClient,showBy){ if(!rows.length)return '<div class="empty" style="padding:30px"><div class="big">No entries yet</div></div>'; return '<table><thead><tr><th>Date</th>'+(showClient?'<th>Client</th>':'')+'<th>Hours</th><th>Note</th>'+(showBy?'<th>Logged by</th>':'')+'</tr></thead><tbody>'+rows.map(l=>{const c=state.clients.find(x=>x.id===l.clientId)||{};return '<tr><td class="num" style="font-weight:700">'+fmtDate(l.date)+'</td>'+(showClient?'<td>'+(c.name||'—')+'</td>':'')+'<td class="num" style="font-weight:800;color:var(--highlight)">'+fmtHM(l.hours)+'</td><td>'+(l.note||'—')+'</td>'+(showBy?'<td class="ce">'+(l.by||'—')+'</td>':'')+'</tr>';}).join('')+'</tbody></table>';}
 function getTaskStatusPill(s){const map={todo:'todo','in-progress':'in-progress','in-review':'in-review',revision:'revision',complete:'complete'};return map[s]||'todo';}
 function getPriorityPill(p){const map={high:'priority-high',medium:'priority-medium',low:'priority-low'};return map[p]||'priority-low';}
 function getCommentReadStatus(comment, userId){return comment.readBy&&comment.readBy.includes(userId);}
-function markCommentsRead(taskId, userId){
-  const t=state.tasks.find(x=>x.id===taskId);if(!t)return;
-  const markRead=(comments)=>{
-    if(!comments)return;
-    comments.forEach(c=>{if(!c.readBy)c.readBy=[];if(!c.readBy.includes(userId))c.readBy.push(userId);if(c.replies)markRead(c.replies);});
-  };
-  markRead(t.comments);
-}
+function markCommentsRead(taskId, userId){ const t=state.tasks.find(x=>x.id===taskId);if(!t)return; const markRead=(comments)=>{ if(!comments)return; comments.forEach(c=>{if(!c.readBy)c.readBy=[];if(!c.readBy.includes(userId))c.readBy.push(userId);if(c.replies)markRead(c.replies);}); }; markRead(t.comments); }
 const statusOptions=[{value:'todo',label:'To do'},{value:'in-progress',label:'In progress'},{value:'in-review',label:'In review'},{value:'revision',label:'Revision'},{value:'complete',label:'Complete'}];
-
-function removeAssignee(taskId, userId){
-  const t=state.tasks.find(x=>x.id===taskId);
-  if(!t) return;
-  if(!t.assignedTo) t.assignedTo=[];
-  t.assignedTo=t.assignedTo.filter(id=>id!==userId);
-  logEvent('👤','Removed '+getUserName(userId)+' from task "'+t.title+'"',0);
-  toast('Removed '+getUserName(userId),'brand');
-  renderTasks();
-}
-function addAssignee(taskId, userId){
-  const t=state.tasks.find(x=>x.id===taskId);
-  if(!t) return;
-  if(!t.assignedTo) t.assignedTo=[];
-  if(!t.assignedTo.includes(userId)){
-    t.assignedTo.push(userId);
-    logEvent('👤','Added '+getUserName(userId)+' to task "'+t.title+'"',0);
-    toast('Added '+getUserName(userId),'brand');
-    renderTasks();
-  }
-}
+function removeAssignee(taskId, userId){ const t=state.tasks.find(x=>x.id===taskId); if(!t) return; if(!t.assignedTo) t.assignedTo=[]; t.assignedTo=t.assignedTo.filter(id=>id!==userId); logEvent('👤','Removed '+getUserName(userId)+' from task "'+t.title+'"',0); toast('Removed '+getUserName(userId),'brand'); renderTasks(); }
+function addAssignee(taskId, userId){ const t=state.tasks.find(x=>x.id===taskId); if(!t) return; if(!t.assignedTo) t.assignedTo=[]; if(!t.assignedTo.includes(userId)){ t.assignedTo.push(userId); logEvent('👤','Added '+getUserName(userId)+' to task "'+t.title+'"',0); toast('Added '+getUserName(userId),'brand'); renderTasks(); } }
 
 // ============================================================
-//  TIMER FUNCTIONS
+//  TIMER FUNCTIONS (FULL)
 // ============================================================
-function getUserTimer(userId){
-  if(!state.userTimers[userId]){
-    state.userTimers[userId]={isRunning:false,isOnBreak:false,workingStart:null,breakStart:null,totalWorking:0,totalBreak:0,status:'stopped'};
-  }
-  return state.userTimers[userId];
-}
-
-function getUserWorkSeconds(userId){
-  const t=getUserTimer(userId);
-  let s=t.totalWorking;
-  if(t.isRunning&&!t.isOnBreak&&t.workingStart){s+=(Date.now()-t.workingStart)/1000;}
-  return s;
-}
-
-function getUserBreakSeconds(userId){
-  const t=getUserTimer(userId);
-  let s=t.totalBreak;
-  if(t.isOnBreak&&t.breakStart){s+=(Date.now()-t.breakStart)/1000;}
-  return s;
-}
-
-function getUserTimerStatus(userId){
-  const t=getUserTimer(userId);
-  if(t.isRunning&&t.isOnBreak) return 'break';
-  if(t.isRunning) return 'running';
-  return 'stopped';
-}
-
+function getUserTimer(userId){ if(!state.userTimers[userId]){ state.userTimers[userId]={isRunning:false,isOnBreak:false,workingStart:null,breakStart:null,totalWorking:0,totalBreak:0,status:'stopped'}; } return state.userTimers[userId]; }
+function getUserWorkSeconds(userId){ const t=getUserTimer(userId); let s=t.totalWorking; if(t.isRunning&&!t.isOnBreak&&t.workingStart){s+=(Date.now()-t.workingStart)/1000;} return s; }
+function getUserBreakSeconds(userId){ const t=getUserTimer(userId); let s=t.totalBreak; if(t.isOnBreak&&t.breakStart){s+=(Date.now()-t.breakStart)/1000;} return s; }
+function getUserTimerStatus(userId){ const t=getUserTimer(userId); if(t.isRunning&&t.isOnBreak) return 'break'; if(t.isRunning) return 'running'; return 'stopped'; }
 function getWorkSeconds(){return getUserWorkSeconds(state.worker);}
 function getBreakSeconds(){return getUserBreakSeconds(state.worker);}
 function formatTime(sec){const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=Math.floor(sec%60);return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}
-function updateTimerUI(){
-  const w=getWorkSeconds(),b=getBreakSeconds();
-  const wd=document.getElementById('timerDisplay');if(wd)wd.textContent=formatTime(w);
-  const bd=document.getElementById('breakDisplay');if(bd)bd.textContent=formatTime(b);
-  const t=getUserTimer(state.worker);
-  const dot=document.getElementById('timerStatusDot');if(dot){dot.className='dot '+(t.status==='running'?'running':t.status==='break'?'break':'stopped');}
-  const lbl=document.getElementById('timerStatusLabel');if(lbl)lbl.textContent=t.status.charAt(0).toUpperCase()+t.status.slice(1);
-  const ws=document.getElementById('workSummary');if(ws){const h=Math.floor(w/3600),m=Math.floor((w%3600)/60);ws.textContent=h+'h '+m+'m';}
-  const bs=document.getElementById('breakSummary');if(bs){const h=Math.floor(b/3600),m=Math.floor((b%3600)/60);bs.textContent=h+'h '+m+'m';}
-}
-
-function timerLoop(){
-  updateTimerUI();
-  const t=getUserTimer(state.worker);
-  if(t.isRunning||t.isOnBreak){
-    state.timer.rafId=requestAnimationFrame(timerLoop);
-  }
-}
-
-// ============================================================
-//  START / STOP / BREAK TIMER
-// ============================================================
-function startTimer(){
-  const userId=state.worker;
-  const t=getUserTimer(userId);
-  if(t.isRunning)return;
-  t.isRunning=true;t.isOnBreak=false;t.status='running';
-  t.workingStart=Date.now();t.breakStart=null;
-  if(state.timer.rafId)cancelAnimationFrame(state.timer.rafId);
-  timerLoop();toast('Timer started','brand');
-  if(state.screenshotInterval) clearInterval(state.screenshotInterval);
-  state.screenshotInterval = setInterval(function(){
-    const t2=getUserTimer(state.worker);
-    if(t2.isRunning) captureAutoScreenshot();
-  }, 900000);
-  renderUserDashboard();
-}
-
-function toggleBreak(){
-  const userId=state.worker;
-  const t=getUserTimer(userId);
-  if(!t.isRunning)return;
-  if(t.isOnBreak){
-    if(t.breakStart){t.totalBreak+=(Date.now()-t.breakStart)/1000;}
-    t.isOnBreak=false;t.breakStart=null;t.status='running';
-    t.workingStart=Date.now();
-    toast('Resumed working');
-  }else{
-    if(t.workingStart){t.totalWorking+=(Date.now()-t.workingStart)/1000;}
-    t.isOnBreak=true;t.workingStart=null;t.status='break';
-    t.breakStart=Date.now();
-    toast('Break started ☕');
-  }
-  updateTimerUI();
-  renderUserDashboard();
-}
-
-function endTimer(){
-  const userId=state.worker;
-  const t=getUserTimer(userId);
-  if(!t.isRunning&&t.totalWorking===0&&t.totalBreak===0)return;
-  let w=t.totalWorking,b=t.totalBreak;
-  if(t.isRunning){
-    if(t.isOnBreak&&t.breakStart){b+=(Date.now()-t.breakStart)/1000;}
-    else if(t.workingStart){w+=(Date.now()-t.workingStart)/1000;}
-  }
-  const hours = Math.round((w/3600) * 100) / 100;
-  const breakHours = Math.round((b/3600) * 100) / 100;
-  state.timerActivity.push({
-    user: userId,
-    date: todayStr(),
-    working: Math.round(w),
-    break: Math.round(b),
-    duration: hours,
-    breakDuration: breakHours,
-    start: new Date().toISOString(),
-    end: new Date().toISOString(),
-    screenshots: []
-  });
-  t.isRunning=false;t.isOnBreak=false;t.workingStart=null;t.breakStart=null;t.status='stopped';
-  t.totalWorking=0;t.totalBreak=0;
-  if(state.timer.rafId){cancelAnimationFrame(state.timer.rafId);state.timer.rafId=null;}
-  if(state.screenshotInterval){clearInterval(state.screenshotInterval);state.screenshotInterval=null;}
-  toast('Day ended ✅','brand');
-  updateTimerUI();
-  renderUserDashboard();
-  if(state.view === 'live') renderLiveActivity();
-}
-
-// ============================================================
-//  AUTO SCREENSHOT
-// ============================================================
-function captureAutoScreenshot(){
-  const userId=state.worker;
-  let activity=null;
-  for(let i=state.timerActivity.length-1;i>=0;i--){
-    if(state.timerActivity[i].user===userId){activity=state.timerActivity[i];break;}
-  }
-  if(!activity){
-    const t=getUserTimer(userId);
-    const hours = Math.round((t.totalWorking/3600)*100)/100;
-    const breakHours = Math.round((t.totalBreak/3600)*100)/100;
-    activity={user:userId,date:todayStr(),working:Math.round(t.totalWorking),break:Math.round(t.totalBreak),duration:hours,breakDuration:breakHours,start:new Date().toISOString(),end:new Date().toISOString(),screenshots:[]};
-    state.timerActivity.push(activity);
-  }
-  if(typeof html2canvas!=='undefined'){
-    const card=document.querySelector('.live-card');
-    if(card){
-      html2canvas(card,{useCORS:true,scale:0.3}).then(canvas=>{
-        const imgData=canvas.toDataURL('image/png');
-        if(!activity.screenshots)activity.screenshots=[];
-        activity.screenshots.push(imgData);
-        toast('📸 Auto screenshot captured (15 min)');
-      }).catch(()=>{});
-    }
-  }
-}
-
-function captureScreenshot(cardIndex){
-  const liveCards = document.querySelectorAll('.live-card');
-  if(!liveCards[cardIndex]) { toast('Card not found'); return; }
-  const card = liveCards[cardIndex];
-  const activities = state.timerActivity.slice().reverse();
-  const activity = activities[cardIndex];
-  if(!activity) { toast('Activity not found'); return; }
-  if(typeof html2canvas !== 'undefined'){
-    html2canvas(card, { useCORS: true, scale: 0.5 }).then(canvas => {
-      const imgData = canvas.toDataURL('image/png');
-      if(!activity.screenshots) activity.screenshots=[];
-      activity.screenshots.push(imgData);
-      toast('Screenshot captured!');
-      if(state.view === 'live') renderLiveActivity();
-    }).catch(() => { fallbackScreenshot(cardIndex, activity); });
-  } else {
-    fallbackScreenshot(cardIndex, activity);
-  }
-}
-function fallbackScreenshot(cardIndex, activity){
-  const card = document.querySelectorAll('.live-card')[cardIndex];
-  if(!card) return;
-  const script = document.createElement('script');
-  script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-  script.onload = function() {
-    html2canvas(card, { useCORS: true, scale: 0.5 }).then(canvas => {
-      const imgData = canvas.toDataURL('image/png');
-      if(!activity.screenshots) activity.screenshots=[];
-      activity.screenshots.push(imgData);
-      toast('Screenshot captured!');
-      if(state.view === 'live') renderLiveActivity();
-    }).catch(() => { toast('Screenshot failed'); });
-  };
-  script.onerror = function(){ toast('Screenshot library not loaded'); };
-  document.head.appendChild(script);
-}
+function updateTimerUI(){ const w=getWorkSeconds(),b=getBreakSeconds(); const wd=document.getElementById('timerDisplay');if(wd)wd.textContent=formatTime(w); const bd=document.getElementById('breakDisplay');if(bd)bd.textContent=formatTime(b); const t=getUserTimer(state.worker); const dot=document.getElementById('timerStatusDot');if(dot){dot.className='dot '+(t.status==='running'?'running':t.status==='break'?'break':'stopped');} const lbl=document.getElementById('timerStatusLabel');if(lbl)lbl.textContent=t.status.charAt(0).toUpperCase()+t.status.slice(1); const ws=document.getElementById('workSummary');if(ws){const h=Math.floor(w/3600),m=Math.floor((w%3600)/60);ws.textContent=h+'h '+m+'m';} const bs=document.getElementById('breakSummary');if(bs){const h=Math.floor(b/3600),m=Math.floor((b%3600)/60);bs.textContent=h+'h '+m+'m';} }
+function timerLoop(){ updateTimerUI(); const t=getUserTimer(state.worker); if(t.isRunning||t.isOnBreak){ state.timer.rafId=requestAnimationFrame(timerLoop); } }
+function startTimer(){ const userId=state.worker; const t=getUserTimer(userId); if(t.isRunning)return; t.isRunning=true;t.isOnBreak=false;t.status='running'; t.workingStart=Date.now();t.breakStart=null; if(state.timer.rafId)cancelAnimationFrame(state.timer.rafId); timerLoop();toast('Timer started','brand'); if(state.screenshotInterval) clearInterval(state.screenshotInterval); state.screenshotInterval = setInterval(function(){ const t2=getUserTimer(state.worker); if(t2.isRunning) captureAutoScreenshot(); }, 900000); renderUserDashboard(); }
+function toggleBreak(){ const userId=state.worker; const t=getUserTimer(userId); if(!t.isRunning)return; if(t.isOnBreak){ if(t.breakStart){t.totalBreak+=(Date.now()-t.breakStart)/1000;} t.isOnBreak=false;t.breakStart=null;t.status='running'; t.workingStart=Date.now(); toast('Resumed working'); }else{ if(t.workingStart){t.totalWorking+=(Date.now()-t.workingStart)/1000;} t.isOnBreak=true;t.workingStart=null;t.status='break'; t.breakStart=Date.now(); toast('Break started ☕'); } updateTimerUI(); renderUserDashboard(); }
+function endTimer(){ const userId=state.worker; const t=getUserTimer(userId); if(!t.isRunning&&t.totalWorking===0&&t.totalBreak===0)return; let w=t.totalWorking,b=t.totalBreak; if(t.isRunning){ if(t.isOnBreak&&t.breakStart){b+=(Date.now()-t.breakStart)/1000;} else if(t.workingStart){w+=(Date.now()-t.workingStart)/1000;} } const hours = Math.round((w/3600) * 100) / 100; const breakHours = Math.round((b/3600) * 100) / 100; state.timerActivity.push({ user: userId, date: todayStr(), working: Math.round(w), break: Math.round(b), duration: hours, breakDuration: breakHours, start: new Date().toISOString(), end: new Date().toISOString(), screenshots: [] }); t.isRunning=false;t.isOnBreak=false;t.workingStart=null;t.breakStart=null;t.status='stopped'; t.totalWorking=0;t.totalBreak=0; if(state.timer.rafId){cancelAnimationFrame(state.timer.rafId);state.timer.rafId=null;} if(state.screenshotInterval){clearInterval(state.screenshotInterval);state.screenshotInterval=null;} toast('Day ended ✅','brand'); updateTimerUI(); renderUserDashboard(); if(state.view === 'live') renderLiveActivity(); }
+function captureAutoScreenshot(){ const userId=state.worker; let activity=null; for(let i=state.timerActivity.length-1;i>=0;i--){ if(state.timerActivity[i].user===userId){activity=state.timerActivity[i];break;} } if(!activity){ const t=getUserTimer(userId); const hours = Math.round((t.totalWorking/3600)*100)/100; const breakHours = Math.round((t.totalBreak/3600)*100)/100; activity={user:userId,date:todayStr(),working:Math.round(t.totalWorking),break:Math.round(t.totalBreak),duration:hours,breakDuration:breakHours,start:new Date().toISOString(),end:new Date().toISOString(),screenshots:[]}; state.timerActivity.push(activity); } if(typeof html2canvas!=='undefined'){ const card=document.querySelector('.live-card'); if(card){ html2canvas(card,{useCORS:true,scale:0.3}).then(canvas=>{ const imgData=canvas.toDataURL('image/png'); if(!activity.screenshots)activity.screenshots=[]; activity.screenshots.push(imgData); toast('📸 Auto screenshot captured (15 min)'); }).catch(()=>{}); } } }
+function captureScreenshot(cardIndex){ const liveCards = document.querySelectorAll('.live-card'); if(!liveCards[cardIndex]) { toast('Card not found'); return; } const card = liveCards[cardIndex]; const activities = state.timerActivity.slice().reverse(); const activity = activities[cardIndex]; if(!activity) { toast('Activity not found'); return; } if(typeof html2canvas !== 'undefined'){ html2canvas(card, { useCORS: true, scale: 0.5 }).then(canvas => { const imgData = canvas.toDataURL('image/png'); if(!activity.screenshots) activity.screenshots=[]; activity.screenshots.push(imgData); toast('Screenshot captured!'); if(state.view === 'live') renderLiveActivity(); }).catch(() => { fallbackScreenshot(cardIndex, activity); }); } else { fallbackScreenshot(cardIndex, activity); } }
+function fallbackScreenshot(cardIndex, activity){ const card = document.querySelectorAll('.live-card')[cardIndex]; if(!card) return; const script = document.createElement('script'); script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'; script.onload = function() { html2canvas(card, { useCORS: true, scale: 0.5 }).then(canvas => { const imgData = canvas.toDataURL('image/png'); if(!activity.screenshots) activity.screenshots=[]; activity.screenshots.push(imgData); toast('Screenshot captured!'); if(state.view === 'live') renderLiveActivity(); }).catch(() => { toast('Screenshot failed'); }); }; script.onerror = function(){ toast('Screenshot library not loaded'); }; document.head.appendChild(script); }
 
 // ============================================================
 //  COMMENT NOTIFICATION
@@ -946,36 +749,14 @@ function showCommentNotification(comment, taskTitle, taskId) {
   if (!container) return;
   const notif = document.createElement('div');
   notif.className = 'comment-notification fade-in-right';
-  notif.innerHTML = `
-    <div class="cn-content">
-      <div class="cn-header">
-        <span class="cn-author">${comment.authorName}</span>
-        <span class="cn-task">on <span>"${taskTitle}"</span></span>
-        <button class="cn-close" onclick="this.closest('.comment-notification').remove()">×</button>
-      </div>
-      <div class="cn-body">${comment.text}</div>
-      <div class="cn-footer">
-        <button class="btn sm" onclick="closeCommentNotifications(); openTaskDetail('${taskId}')">💬 Reply</button>
-      </div>
-    </div>
-  `;
+  notif.innerHTML = `<div class="cn-content"><div class="cn-header"><span class="cn-author">${comment.authorName}</span><span class="cn-task">on <span>"${taskTitle}"</span></span><button class="cn-close" onclick="this.closest('.comment-notification').remove()">×</button></div><div class="cn-body">${comment.text}</div><div class="cn-footer"><button class="btn sm" onclick="closeCommentNotifications(); openTaskDetail('${taskId}')">💬 Reply</button></div></div>`;
   container.appendChild(notif);
-  setTimeout(() => {
-    if (notif.parentElement) {
-      notif.style.opacity = '0';
-      notif.style.transform = 'translateX(50px)';
-      notif.style.transition = 'all 0.3s ease';
-      setTimeout(() => { if (notif.parentElement) notif.remove(); }, 300);
-    }
-  }, 6000);
+  setTimeout(() => { if (notif.parentElement) { notif.style.opacity = '0'; notif.style.transform = 'translateX(50px)'; notif.style.transition = 'all 0.3s ease'; setTimeout(() => { if (notif.parentElement) notif.remove(); }, 300); } }, 6000);
 }
-function closeCommentNotifications() {
-  const container = document.getElementById('commentNotifications');
-  if (container) container.innerHTML = '';
-}
+function closeCommentNotifications() { const container = document.getElementById('commentNotifications'); if (container) container.innerHTML = ''; }
 
 // ============================================================
-//  RENDER ENGINE
+//  RENDER ENGINE (UPDATED with AUTH CHECK)
 // ============================================================
 const app=document.getElementById('app');
 const NAV={
@@ -986,6 +767,18 @@ const NAV={
 };
 
 function render(){
+  // AUTH CHECK - ADDED HERE
+  if (!state.isLoggedIn) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('token') && params.has('email')) {
+      renderSetPassword(params.get('token'), params.get('email'));
+      return;
+    }
+    renderLogin();
+    return;
+  }
+
+  // Normal app render
   document.documentElement.dataset.theme=state.theme;
   document.getElementById('themeBtn').innerHTML=state.theme==='dark'?'☀️ Light mode':'🌙 Dark mode';
   document.querySelectorAll('#roleSwitch button').forEach(b=>b.classList.toggle('on',b.dataset.role===state.role));
@@ -1012,7 +805,6 @@ function render(){
   const views={dashboard:renderDashboard,clients:renderClients,clientDetail:renderDetail,reports:renderReports,invoices:renderInvoices,team:renderTeam,settings:renderSettings,tasks:renderTasks,live:renderLiveActivity};
   (views[state.view]||renderDashboard)();
 }
-
 function renderBell(){const n=lowClients().length,badge=document.getElementById('bellBadge');badge.textContent=n;badge.style.display=n?'grid':'none';const list=document.getElementById('notifList');if(!n){list.innerHTML='<li style="color:var(--slate);font-size:13px">All clear — no clients below '+state.threshold+' hours.</li>';return;}list.innerHTML=lowClients().sort((a,b)=>remaining(a)-remaining(b)).map(c=>{const crit=status(c)==='crit';return '<li><span class="ni '+(crit?'crit':'')+'">'+(crit?'✕':'!')+'</span><div><div class="nt">'+c.name+'</div><div class="nd">'+(crit?'Out of hours — needs a top-up':fmt(remaining(c))+' hours left (below '+state.threshold+')')+'</div></div></li>';}).join('');}
 
 // ============================================================
@@ -1118,7 +910,7 @@ function renderSettings(){
 }
 
 // ============================================================
-//  LIVE ACTIVITY - with Working & Break separated
+//  LIVE ACTIVITY
 // ============================================================
 function renderLiveActivity(){
   const allUsers = state.team;
@@ -1135,7 +927,6 @@ function renderLiveActivity(){
   
   activities.sort((a,b) => b.date.localeCompare(a.date));
   
-  // Cards
   let cardsHTML = '<div class="page-head"><div><div class="eyebrow">Live Monitoring</div><h1><span style="-webkit-text-fill-color: initial; color: var(--highlight); display: inline-block;">🔄</span> Completed Sessions</h1><p>View ended timer sessions of all users. Sessions appear after user clicks "End Day".</p></div></div>';
   
   if(activities.length){
@@ -1163,7 +954,6 @@ function renderLiveActivity(){
     cardsHTML += '<div class="empty"><div class="big">No completed sessions yet</div><p>Users need to end their day to appear here.</p></div>';
   }
   
-  // Filter section with table
   let filterHTML = '';
   if(isAdminOrOwner){
     filterHTML = `<div class="panel" style="margin-top:20px">
@@ -1203,7 +993,6 @@ function renderLiveActivity(){
       </div>
     </div>`;
   } else {
-    // For non-admin
     const userActivities = activities.filter(a => a.user === state.team.find(m => m.name === state.worker)?.id);
     filterHTML = `<div class="panel" style="margin-top:20px">
       <div class="panel-head"><h2>📋 Your Sessions</h2></div>
@@ -1309,13 +1098,7 @@ function renderWorker(){
 
 function renderProfile(){
   let me=null;
-  if(state.role==='admin'){
-    me=state.team.find(x=>x.id==='t1');
-  } else if(state.role==='coadmin'){
-    me=state.team.find(x=>x.id==='t2');
-  } else if(state.role==='user'){
-    me=state.team.find(x=>x.name===state.worker&&x.role==='user');
-  }
+  if(state.role==='admin'){ me=state.team.find(x=>x.id==='t1'); } else if(state.role==='coadmin'){ me=state.team.find(x=>x.id==='t2'); } else if(state.role==='user'){ me=state.team.find(x=>x.name===state.worker&&x.role==='user'); }
   if(!me){toast('Profile not found');state.view='dashboard';render();return;}
   const avatarHtml=state.profile.avatar?'<img src="'+state.profile.avatar+'" class="profile-avatar" style="object-fit:cover">':'<div class="profile-avatar">'+initials(me.name)+'</div>';
   app.innerHTML='<div class="page-head"><div><div class="eyebrow">👤 My Profile</div><h1>Profile Settings</h1></div></div><div class="profile-hero"><div class="profile-bg"></div><div class="profile-avatar-wrap">'+avatarHtml+'<div class="avatar-upload-overlay">📷<input type="file" accept="image/*" id="profileUpload"></div></div><div class="profile-name">'+me.name+'</div><div class="profile-role">'+roleLabel(me.role)+'</div><div class="profile-stats"><div class="stat"><div class="num">'+state.tasks.filter(t=>t.assignedTo&&t.assignedTo.includes(me.id)).length+'</div><div class="lbl">Tasks</div></div><div class="stat"><div class="num">'+state.logs.filter(l=>l.by===me.name).length+'</div><div class="lbl">Entries</div></div><div class="stat"><div class="num">'+(me.assigned?me.assigned.length:0)+'</div><div class="lbl">Clients</div></div></div><div class="profile-fields"><div class="field"><label>Full Name</label><input id="profileName" value="'+me.name+'"></div><div class="field"><label>Email</label><input id="profileEmail" value="'+me.email+'"></div><div class="field"><label>Phone</label><input id="profilePhone" value="'+(me.phone||'')+'"></div><div class="field"><label>Role</label><div class="value">'+roleLabel(me.role)+'</div></div></div><div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end"><button class="btn" id="profileSave">💾 Save Changes</button></div></div>';
@@ -1347,7 +1130,7 @@ function renderTasks(){
 }
 
 // ============================================================
-//  TASK DETAIL - with subtask timer logging to timesheet
+//  TASK DETAIL
 // ============================================================
 function openTaskDetail(taskId){
   const t=state.tasks.find(x=>x.id===taskId);
@@ -1495,7 +1278,6 @@ function openTaskDetail(taskId){
   document.getElementById('tdTagAdd').onclick=()=>{const inp=document.getElementById('tdTagInput');const val=inp.value.trim();if(!val)return;if(!t.tags)t.tags=[];if(!t.tags.includes(val))t.tags.push(val);inp.value='';closeModal();openTaskDetail(taskId);};
   document.querySelectorAll('.tag-remove').forEach(el=>el.onclick=()=>{const tag=el.dataset.tag;if(t.tags)t.tags=t.tags.filter(x=>x!==tag);closeModal();openTaskDetail(taskId);});
   
-  // Main task timer
   document.getElementById('ttToggle').onclick=()=>{
     const btn=document.getElementById('ttToggle');
     if(t.timerRunning){
@@ -1560,18 +1342,12 @@ function openTaskDetail(taskId){
     toast('Comment added','brand');
   };
   
-  // Reply to comment
   document.querySelectorAll('.reply-btn').forEach(btn=>{btn.onclick=(e)=>{e.stopPropagation();const commentId=btn.dataset.commentid;const replyInput=btn.closest('.comment-item').querySelector('.reply-input');if(replyInput){replyInput.style.display=replyInput.style.display==='flex'?'none':'flex';replyInput.querySelector('.reply-input-field').focus();}};});
   document.querySelectorAll('.reply-send').forEach(sendBtn=>{sendBtn.onclick=(e)=>{e.stopPropagation();const commentItem=sendBtn.closest('.comment-item');const input=commentItem.querySelector('.reply-input-field');const text=input.value.trim();if(!text)return;const commentId=commentItem.dataset.commentid;function findComment(comments,id){for(let c of comments){if(c.id===id)return c;if(c.replies){const found=findComment(c.replies,id);if(found)return found;}}return null;}const parentComment=findComment(t.comments,commentId);if(!parentComment)return;let authorId='t1',authorName='You',authorRole='admin';if(state.role==='user'){const me=state.team.find(x=>x.name===state.worker&&x.role==='user');if(me){authorId=me.id;authorName=me.name;authorRole='user';}}else if(state.role==='client'){const me=state.team.find(x=>x.role==='client'&&x.clientId===curClient().id);if(me){authorId=me.id;authorName=me.name;authorRole='client';}}const newReply={id:'r'+Date.now(),author:authorId,authorName,authorRole,text,createdAt:todayStr(),readBy:[authorId],replies:[]};if(!parentComment.replies)parentComment.replies=[];parentComment.replies.push(newReply);input.value='';closeModal();openTaskDetail(taskId);toast('Reply added','brand');};});
-  // Click comment -> thread panel
   document.querySelectorAll('.comment-item').forEach(item=>{item.onclick=(e)=>{if(e.target.closest('.reply-btn')||e.target.closest('.reply-input')||e.target.closest('.reply-send'))return;const commentId=item.dataset.commentid;if(commentId)openThreadPanel(t.comments,commentId,currentUserId,'Task');};});
-  // Subtask checkbox
   document.querySelectorAll('.st-check').forEach(cb=>cb.onchange=(e)=>{e.stopPropagation();const st=t.subtasks.find(x=>x.id===cb.dataset.subtask);if(st)st.done=cb.checked;logEvent('🔄','Subtask "'+st.text+'" '+(st.done?'completed':'reopened'),0);closeModal();openTaskDetail(taskId);});
-  // Subtask delete
   document.querySelectorAll('.st-del-btn').forEach(btn=>btn.onclick=(e)=>{e.stopPropagation();if(!confirm('Delete this subtask?'))return;const sid=btn.dataset.subtask;const tid=btn.dataset.task;const task=state.tasks.find(x=>x.id===tid);if(task){task.subtasks=task.subtasks.filter(s=>s.id!==sid);}closeModal();openTaskDetail(tid);});
-  // Subtask edit
   document.querySelectorAll('.st-edit-btn').forEach(btn=>btn.onclick=(e)=>{e.stopPropagation();const sid=btn.dataset.subtask;const st=t.subtasks.find(x=>x.id===sid);if(!st)return;const newText=prompt('Edit subtask text:',st.text);if(newText!==null&&newText.trim())st.text=newText.trim();const newDesc=prompt('Edit subtask description:',st.desc||'');if(newDesc!==null)st.desc=newDesc.trim();closeModal();openTaskDetail(taskId);});
-  // Subtask card click
   setTimeout(function(){
     document.querySelectorAll('.subtask-card').forEach(function(card){
       card.removeEventListener('click',card._subtaskClickHandler);
@@ -1591,7 +1367,7 @@ function openTaskDetail(taskId){
 }
 
 // ============================================================
-//  SUBTASK DETAIL - FIXED: subtask timer logs to timesheet
+//  SUBTASK DETAIL
 // ============================================================
 function openSubtaskDetail(parentTask,subtask){
   if(!subtask)return;const st=subtask;
@@ -1627,7 +1403,6 @@ function openSubtaskDetail(parentTask,subtask){
   document.getElementById('stSave').onclick=function(){st.text=document.getElementById('stTitle').value.trim()||st.text;st.desc=document.getElementById('stDesc').value.trim();const statusVal=document.getElementById('stStatus').value;st.done=(statusVal==='complete');logEvent('✎','Subtask "'+st.text+'" updated',0);closeModal();render();toast('Subtask updated','brand');};
   document.getElementById('stDelete').onclick=function(){if(!confirm('Delete this subtask?'))return;parentTask.subtasks=parentTask.subtasks.filter(s=>s.id!==st.id);closeModal();render();toast('Subtask deleted');};
   
-  // Subtask timer - logs to timesheet
   document.getElementById('stTimerToggle').onclick=function(){
     const btn=document.getElementById('stTimerToggle');
     if(st.timerRunning){
@@ -1637,7 +1412,6 @@ function openSubtaskDetail(parentTask,subtask){
       const hours=Math.round(elapsed/3600*100)/100;
       if(!st.timeEntries)st.timeEntries=[];
       st.timeEntries.push({date:todayStr(), duration:hours, user:state.worker});
-      // ADD TO TIMESHEET
       const c=state.clients.find(x=>x.id===parentTask.clientId);
       if(c){
         c.consumed+=hours;
@@ -1668,7 +1442,6 @@ function openSubtaskDetail(parentTask,subtask){
     st.timeSpent=(st.timeSpent||0)+totalSecs;
     if(!st.timeEntries)st.timeEntries=[];
     st.timeEntries.push({date:todayStr(), duration:hours, user:state.worker});
-    // ADD TO TIMESHEET
     const c=state.clients.find(x=>x.id===parentTask.clientId);
     if(c){
       c.consumed+=hours;
@@ -1734,20 +1507,33 @@ function openAdd(){
 }
 function openTimeEntry(logId){const ex=logId?state.logs.find(l=>l.id===logId):null;const defDate=ex?ex.date:todayStr();showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>'+(ex?'Edit':'Add')+' time entry</h3></div><div class="modal-body"><div class="field-m"><label>Client</label><select id="teClient">'+state.clients.map(c=>'<option value="'+c.id+'"'+(ex&&ex.clientId===c.id?' selected':'')+'>'+c.name+'</option>').join('')+'</select></div><div style="display:flex;gap:12px"><div class="field-m" style="flex:1"><label>Date</label><input type="date" id="teDate" value="'+defDate+'"></div><div class="field-m" style="flex:1"><label>Hours</label><input type="number" id="teHours" step="0.25" value="'+(ex?ex.hours:'')+'"></div></div><div class="field-m"><label>Note</label><input id="teNote" value="'+(ex?ex.note||'':'')+'"></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="teDo">'+(ex?'Save':'Add')+'</button></div>');document.getElementById('teDo').onclick=()=>{const cid=document.getElementById('teClient').value,date=document.getElementById('teDate').value||todayStr(),h=+document.getElementById('teHours').value,note=document.getElementById('teNote').value.trim();if(!h||h<=0){toast('Enter hours');return;}if(ex){const c=state.clients.find(x=>x.id===cid);c.consumed+=h-ex.hours;ex.clientId=cid;ex.date=date;ex.hours=h;ex.note=note;toast('Entry updated','brand');}else{const c=state.clients.find(x=>x.id===cid);c.consumed+=h;state.logs.unshift({id:'l'+Date.now(),clientId:cid,date,hours:h,note,by:state.worker});toast('Entry added','brand');}closeModal();render();};}
 function openAssign(id){const m=state.team.find(x=>x.id===id);const cur=new Set(m.assigned||[]);showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Assign clients</h3></div><div class="modal-body">'+state.clients.map(c=>'<label class="chk"><input type="checkbox" value="'+c.id+'" '+(cur.has(c.id)?'checked':'')+'><span>'+c.name+'</span></label>').join('')+'</div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="asDo">Save</button></div>');document.getElementById('asDo').onclick=()=>{m.assigned=[...overlay.querySelectorAll('.chk input:checked')].map(i=>i.value);toast('Assignments updated','brand');closeModal();render();};}
+
+// ============================================================
+//  UPDATED INVITE FUNCTION (Calls Backend API)
+// ============================================================
 function openInvite(){
   showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Invite member</h3></div><div class="modal-body"><div class="field-m"><label>Name</label><input id="iName"></div><div class="field-m"><label>Email</label><input id="iEmail"></div><div class="field-m"><label>Role</label><select id="iRole"><option value="coadmin">Admin</option><option value="user">User</option><option value="client">Client</option></select></div><div class="field-m" id="iClientWrap" style="display:none"><label>Client</label><select id="iClient">'+state.clients.map(c=>'<option value="'+c.id+'">'+c.name+'</option>').join('')+'</select></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="invDo">Send</button></div>');
   document.getElementById('iRole').onchange=()=>{document.getElementById('iClientWrap').style.display=document.getElementById('iRole').value==='client'?'block':'none';};
-  document.getElementById('invDo').onclick=()=>{
+  document.getElementById('invDo').onclick=async ()=>{
     const name=document.getElementById('iName').value.trim(),email=document.getElementById('iEmail').value.trim(),role=document.getElementById('iRole').value;
     if(!name||!email){toast('Enter name and email');return;}
-    const m={id:'t'+Date.now(),name,email,role,status:'invited'};
-    if(role==='client')m.clientId=document.getElementById('iClient').value;
-    state.team.push(m);
-    state.userTimers[m.id]={isRunning:false,isOnBreak:false,workingStart:null,breakStart:null,totalWorking:0,totalBreak:0,status:'stopped'};
-    toast('Invite sent to '+name,'brand');
-    closeModal();render();
+    const clientId = document.getElementById('iClient')?.value || null;
+    try {
+      const res = await fetch('https://my-backend.onrender.com/api/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, role, clientId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      toast('Invitation sent to ' + name + '!', 'brand');
+      closeModal(); render();
+    } catch(err) {
+      toast('Error: ' + err.message);
+    }
   };
 }
+
 function openInvoice(){showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>New invoice</h3></div><div class="modal-body"><div class="field-m"><label>Client</label><select id="ivClient">'+state.clients.map(c=>'<option value="'+c.id+'" data-con="'+c.consumed+'">'+c.name+'</option>').join('')+'</select></div><div style="display:flex;gap:12px"><div class="field-m" style="flex:1"><label>Period</label><input id="ivPeriod" value="'+monthLabel(shiftMonth(todayStr().slice(0,7),-1))+'"></div><div class="field-m" style="flex:1"><label>Hours</label><input type="number" id="ivHours" value="'+state.clients[0].consumed+'"></div></div><div class="field-m"><label>Rate</label><input type="number" id="ivRate" value="'+state.rate+'"></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="ivDo">Create</button></div>');document.getElementById('ivDo').onclick=()=>{const cid=document.getElementById('ivClient').value,h=+document.getElementById('ivHours').value||0,rate=+document.getElementById('ivRate').value||state.rate;if(h<=0){toast('Enter hours');return;}state.invoices.unshift({id:'inv'+Date.now(),clientId:cid,period:document.getElementById('ivPeriod').value.trim()||'Current',hours:h,rate,status:'draft',date:todayStr()});toast('Invoice created','brand');closeModal();render();};}
 function openSendInvoice(id){const x=state.invoices.find(y=>y.id===id),c=state.clients.find(y=>y.id===x.clientId)||{};showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Send invoice</h3></div><div class="modal-body"><div class="field-m"><label>To</label><input id="siTo" value="'+(c.email||'')+'"></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="siDo">Send</button></div>');document.getElementById('siDo').onclick=()=>{const to=document.getElementById('siTo').value.trim();if(!to){toast('Enter email');return;}x.status='sent';x.sentTo=to;toast('Invoice sent','brand');closeModal();render();};}
 function viewInvoice(id){const x=state.invoices.find(y=>y.id===id);showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Invoice #'+x.id.toUpperCase()+'</h3></div><div class="modal-body"><div>Amount: '+money(invAmount(x))+'</div><div>Status: '+x.status+'</div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Close</button></div>');}
@@ -1755,6 +1541,78 @@ function openPurchaseIntake(){showModal('<button class="close-x" onclick="closeM
 function exportCSV(){const rows=[['Client','Email','Purchased','Consumed','Remaining']];state.clients.forEach(c=>rows.push([c.name,c.email,c.purchased,c.consumed,remaining(c)]));const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='clients.csv';a.click();URL.revokeObjectURL(url);toast('CSV exported','brand');}
 function openNewTask(){showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Create New Task</h3></div><div class="modal-body"><div class="field-m"><label>Title *</label><input id="ntTitle" placeholder="Task title"></div><div class="field-m"><label>Description</label><textarea id="ntDesc" rows="3"></textarea></div><div class="field-m"><label>Client</label><select id="ntClient">'+state.clients.map(c=>'<option value="'+c.id+'">'+c.name+'</option>').join('')+'</select></div><div class="field-m"><label>Assign to (multiple)</label><select id="ntAssign" multiple size="3">'+state.team.filter(m=>m.role==='user'||m.role==='admin'||m.role==='coadmin').map(m=>'<option value="'+m.id+'">'+m.name+'</option>').join('')+'</select></div><div style="display:flex;gap:12px"><div class="field-m" style="flex:1"><label>Status</label><select id="ntStatus">'+statusOptions.map(s=>'<option value="'+s.value+'">'+s.label+'</option>').join('')+'</select></div><div class="field-m" style="flex:1"><label>Priority</label><select id="ntPriority"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select></div></div><div class="field-m"><label>Due Date</label><input type="date" id="ntDue"></div><div class="field-m"><label>Tags (comma separated)</label><input id="ntTags" placeholder="Design, Copy"></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="ntDo">Create</button></div>');document.getElementById('ntDo').onclick=()=>{const title=document.getElementById('ntTitle').value.trim();if(!title){toast('Enter a title');return;}const assignSelect=document.getElementById('ntAssign');const assignedTo=Array.from(assignSelect.selectedOptions).map(o=>o.value);const newTask={id:'t'+Date.now(),title,description:document.getElementById('ntDesc').value.trim(),status:document.getElementById('ntStatus').value,priority:document.getElementById('ntPriority').value,clientId:document.getElementById('ntClient').value,assignedTo:assignedTo,dueDate:document.getElementById('ntDue').value||'',tags:document.getElementById('ntTags').value.split(',').map(s=>s.trim()).filter(Boolean),createdBy:state.role==='client'?'client':'admin',createdByName:state.role==='client'?curClient().name:'You',createdAt:todayStr(),subtasks:[],comments:[],timeSpent:0,timerRunning:false,timerStart:null,timeEntries:[]};state.tasks.unshift(newTask);logEvent('✅','New task "'+title+'" created',0);toast('Task created and assigned to '+getUserNames(assignedTo),'brand');closeModal();renderTasks();};}
 function openTaskEdit(taskId){const t=state.tasks.find(x=>x.id===taskId);if(!t)return;const clientOpts=state.clients.map(c=>'<option value="'+c.id+'"'+(c.id===t.clientId?' selected':'')+'>'+c.name+'</option>').join('');const assignOpts=state.team.filter(m=>m.role==='user'||m.role==='admin'||m.role==='coadmin').map(m=>'<option value="'+m.id+'"'+(t.assignedTo&&t.assignedTo.includes(m.id)?' selected':'')+'>'+m.name+'</option>').join('');const statusOpts=statusOptions.map(s=>'<option value="'+s.value+'"'+(t.status===s.value?' selected':'')+'>'+s.label+'</option>').join('');showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Edit Task</h3></div><div class="modal-body"><div class="field-m"><label>Title</label><input id="etTitle" value="'+t.title.replace(/"/g,'&quot;')+'"></div><div class="field-m"><label>Description</label><textarea id="etDesc" rows="3">'+(t.description||'').replace(/"/g,'&quot;')+'</textarea></div><div class="field-m"><label>Client</label><select id="etClient">'+clientOpts+'</select></div><div class="field-m"><label>Assign to (multiple)</label><select id="etAssign" multiple size="3">'+assignOpts+'</select></div><div style="display:flex;gap:12px"><div class="field-m" style="flex:1"><label>Status</label><select id="etStatus">'+statusOpts+'</select></div><div class="field-m" style="flex:1"><label>Priority</label><select id="etPriority"><option value="low"'+(t.priority==='low'?' selected':'')+'>Low</option><option value="medium"'+(t.priority==='medium'?' selected':'')+'>Medium</option><option value="high"'+(t.priority==='high'?' selected':'')+'>High</option></select></div></div><div class="field-m"><label>Due Date</label><input type="date" id="etDue" value="'+(t.dueDate||'')+'"></div><div class="field-m"><label>Tags (comma separated)</label><input id="etTags" value="'+(t.tags?t.tags.join(', '):'')+'"></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()" style="margin-right:auto;color:var(--highlight);border-color:var(--red-soft)" id="etDel">Delete</button><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="etDo">Save</button></div>');document.getElementById('etDo').onclick=()=>{t.title=document.getElementById('etTitle').value.trim()||t.title;t.description=document.getElementById('etDesc').value.trim();t.clientId=document.getElementById('etClient').value;const assignSelect=document.getElementById('etAssign');t.assignedTo=Array.from(assignSelect.selectedOptions).map(o=>o.value);t.status=document.getElementById('etStatus').value;t.priority=document.getElementById('etPriority').value;t.dueDate=document.getElementById('etDue').value||'';t.tags=document.getElementById('etTags').value.split(',').map(s=>s.trim()).filter(Boolean);logEvent('✎','Task "'+t.title+'" updated',0);closeModal();renderTasks();toast('Task updated','brand');};document.getElementById('etDel').onclick=()=>{if(!confirm('Delete this task?'))return;state.tasks=state.tasks.filter(x=>x.id!==taskId);closeModal();renderTasks();toast('Task deleted');};}
+
+// ============================================================
+//  LOGIN & SET PASSWORD PAGES (Branded)
+// ============================================================
+function renderLogin() {
+  const logoUrl = 'https://vibe.filesafe.space/1781548817483658086/attachments/4f7e2bb5-46d6-459e-8104-44ee1ccee4c0.webp';
+  app.innerHTML = `
+    <div style="display:flex;justify-content:center;align-items:center;min-height:80vh;padding:20px;">
+      <div style="background:var(--surface);padding:40px;border-radius:var(--radius);border:1px solid var(--line);max-width:420px;width:100%;box-shadow:var(--shadow);text-align:center;">
+        <img src="${logoUrl}" alt="Virtual Ally" style="width:80px;height:80px;border-radius:16px;object-fit:contain;margin-bottom:16px;box-shadow:0 4px 20px rgba(26,42,74,0.2);">
+        <h2 style="font-size:28px;font-weight:800;margin-bottom:4px;background:var(--grad);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:gradientShift 6s ease infinite;">Welcome Back</h2>
+        <p style="color:var(--slate);margin-bottom:24px;">Sign in to your Virtual Ally account</p>
+        <div class="field-m" style="text-align:left;"><label>Email</label><input class="inp" id="loginEmail" type="email" placeholder="you@company.com"></div>
+        <div class="field-m" style="text-align:left;"><label>Password</label><input class="inp" id="loginPassword" type="password" placeholder="••••••"></div>
+        <button class="btn" id="loginBtn" style="width:100%;justify-content:center;margin-top:8px;">Sign In</button>
+        <p style="margin-top:16px;font-size:13px;color:var(--slate);">Don't have an account? Contact your admin.</p>
+        <div id="loginError" style="color:#DC2626;margin-top:12px;font-weight:600;"></div>
+      </div>
+    </div>
+  `;
+  document.getElementById('loginBtn').onclick = async () => {
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    const errorDiv = document.getElementById('loginError');
+    if (!email || !password) { errorDiv.textContent = 'Please fill all fields.'; return; }
+    try {
+      const res = await fetch('https://my-backend.onrender.com/api/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Login failed');
+      state.authToken = data.token; state.authUser = data.user; state.isLoggedIn = true;
+      state.view = data.user.role === 'client' ? 'clienthome' : 'dashboard';
+      toast('Login successful!','brand'); render();
+    } catch(err) { errorDiv.textContent = err.message; }
+  };
+}
+
+function renderSetPassword(token, email) {
+  const logoUrl = 'https://vibe.filesafe.space/1781548817483658086/attachments/4f7e2bb5-46d6-459e-8104-44ee1ccee4c0.webp';
+  app.innerHTML = `
+    <div style="display:flex;justify-content:center;align-items:center;min-height:80vh;padding:20px;">
+      <div style="background:var(--surface);padding:40px;border-radius:var(--radius);border:1px solid var(--line);max-width:420px;width:100%;box-shadow:var(--shadow);text-align:center;">
+        <img src="${logoUrl}" alt="Virtual Ally" style="width:80px;height:80px;border-radius:16px;object-fit:contain;margin-bottom:16px;box-shadow:0 4px 20px rgba(26,42,74,0.2);">
+        <h2 style="font-size:24px;font-weight:800;margin-bottom:4px;background:var(--grad);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:gradientShift 6s ease infinite;">Set Your Password</h2>
+        <p style="color:var(--slate);margin-bottom:20px;">Hi! Set password for <b>${email}</b></p>
+        <div class="field-m" style="text-align:left;"><label>Password (min 6 chars)</label><input class="inp" id="setPass" type="password"></div>
+        <div class="field-m" style="text-align:left;"><label>Confirm Password</label><input class="inp" id="setPassConfirm" type="password"></div>
+        <button class="btn" id="setPassBtn" style="width:100%;justify-content:center;">Activate Account</button>
+        <div id="setPassError" style="color:#DC2626;margin-top:12px;font-weight:600;"></div>
+      </div>
+    </div>
+  `;
+  document.getElementById('setPassBtn').onclick = async () => {
+    const pass = document.getElementById('setPass').value;
+    const confirm = document.getElementById('setPassConfirm').value;
+    const errDiv = document.getElementById('setPassError');
+    if (pass.length < 6) { errDiv.textContent = 'Min 6 characters.'; return; }
+    if (pass !== confirm) { errDiv.textContent = 'Passwords do not match.'; return; }
+    try {
+      const res = await fetch('https://my-backend.onrender.com/api/set-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password: pass })
+      });
+      if (!res.ok) throw new Error('Failed');
+      toast('Account activated! Please login.','brand');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      state.isLoggedIn = false; render();
+    } catch(err) { errDiv.textContent = err.message; }
+  };
+}
 
 // ============================================================
 //  GLOBAL EVENTS
