@@ -720,12 +720,11 @@ const NAV={
 };
 
 function render(){
-  // AUTH CHECK - ADDED HERE
-  if (!state.isLoggedIn) {
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('token') && params.has('email')) {
-      renderSetPassword(params.get('token'), params.get('email'));
-      return;
+    // Load data if logged in and data not loaded
+  if (state.isLoggedIn && !state.isDataLoaded) {
+    loadData();
+    return;
+  }
     }
     renderLogin();
     return;
