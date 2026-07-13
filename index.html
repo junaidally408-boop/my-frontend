@@ -1276,39 +1276,84 @@ function openTaskEdit(taskId){const t=state.tasks.find(x=>x.id===taskId);if(!t)r
 // ============================================================
 //  LOGIN & SET PASSWORD (Branded)
 // ============================================================
-function renderLogin() {
+ function renderLogin() {
   const logoUrl = 'https://vibe.filesafe.space/1781548817483658086/attachments/4f7e2bb5-46d6-459e-8104-44ee1ccee4c0.webp';
+  
   app.innerHTML = `
-    <div style="display:flex;justify-content:center;align-items:center;min-height:80vh;padding:20px;">
-      <div style="background:var(--surface);padding:40px;border-radius:var(--radius);border:1px solid var(--line);max-width:420px;width:100%;box-shadow:var(--shadow);text-align:center;">
+    <div style="display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px;background:var(--canvas);">
+      <div style="background:var(--surface);padding:40px;border-radius:var(--radius);border:1px solid var(--line);max-width:400px;width:100%;box-shadow:var(--shadow);text-align:center;">
+        <!-- Logo -->
         <img src="${logoUrl}" alt="Virtual Ally" style="width:80px;height:80px;border-radius:16px;object-fit:contain;margin-bottom:16px;box-shadow:0 4px 20px rgba(26,42,74,0.2);">
         <h2 style="font-size:28px;font-weight:800;margin-bottom:4px;background:var(--grad);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:gradientShift 6s ease infinite;">Welcome Back</h2>
-        <p style="color:var(--slate);margin-bottom:24px;">Sign in to your Virtual Ally account</p>
-        <div class="field-m" style="text-align:left;"><label>Email</label><input class="inp" id="loginEmail" type="email" placeholder="you@company.com"></div>
-        <div class="field-m" style="text-align:left;"><label>Password</label><input class="inp" id="loginPassword" type="password" placeholder="••••••"></div>
+        <p style="color:var(--slate);margin-bottom:24px;font-size:14px;">Sign in to your Virtual Ally account</p>
+        
+        <!-- Email Field -->
+        <div class="field-m" style="text-align:left;">
+          <label>Email</label>
+          <input class="inp" id="loginEmail" type="email" placeholder="you@company.com" style="width:100%;">
+        </div>
+        
+        <!-- Password Field with Eye Icon -->
+        <div class="field-m" style="text-align:left;position:relative;">
+          <label>Password</label>
+          <div style="position:relative;">
+            <input class="inp" id="loginPassword" type="password" placeholder="••••••" style="width:100%;padding-right:44px;">
+            <button type="button" id="togglePassword" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:20px;cursor:pointer;color:var(--slate);padding:4px;">
+              👁️
+            </button>
+          </div>
+        </div>
+        
+        <!-- Login Button -->
         <button class="btn" id="loginBtn" style="width:100%;justify-content:center;margin-top:8px;">Sign In</button>
         <p style="margin-top:16px;font-size:13px;color:var(--slate);">Don't have an account? Contact your admin.</p>
-        <div id="loginError" style="color:#DC2626;margin-top:12px;font-weight:600;"></div>
+        <div id="loginError" style="color:#DC2626;margin-top:12px;font-weight:600;font-size:14px;"></div>
       </div>
     </div>
   `;
+
+  // ===== Password Eye Toggle =====
+  const toggleBtn = document.getElementById('togglePassword');
+  const passwordInput = document.getElementById('loginPassword');
+  if (toggleBtn && passwordInput) {
+    toggleBtn.addEventListener('click', function() {
+      const isPassword = passwordInput.type === 'password';
+      passwordInput.type = isPassword ? 'text' : 'password';
+      toggleBtn.textContent = isPassword ? '🙈' : '👁️';
+    });
+  }
+
+  // ===== Login Button Handler =====
   document.getElementById('loginBtn').onclick = async () => {
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
     const errorDiv = document.getElementById('loginError');
-    if (!email || !password) { errorDiv.textContent = 'Please fill all fields.'; return; }
+    
+    if (!email || !password) {
+      errorDiv.textContent = 'Please fill all fields.';
+      return;
+    }
+    
     try {
       const res = await fetch('https://my-backend-ptmb.onrender.com/api/login', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
-      state.authToken = data.token; state.authUser = data.user; state.isLoggedIn = true;
+      
+      state.authToken = data.token;
+      state.authUser = data.user;
+      state.isLoggedIn = true;
       state.view = data.user.role === 'client' ? 'clienthome' : 'dashboard';
-      state.isDataLoaded = false; // Force load data
-      toast('Login successful!','brand'); render();
-    } catch(err) { errorDiv.textContent = err.message; }
+      state.isDataLoaded = false;
+      
+      toast('Login successful!', 'brand');
+      render();
+    } catch(err) {
+      errorDiv.textContent = err.message;
+    }
   };
 }
 
