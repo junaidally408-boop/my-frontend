@@ -750,30 +750,22 @@ const NAV={
 };
 
 function render(){
-   // Fix: Sidebar aur Topbar ko login ke hisaab se hide/show karein (safely)
+  function render(){
+  // ===== SIDEBAR AUR TOPBAR KO SAHI TAREEQE SE HIDE/SHOW KAREIN =====
   const sidebar = document.getElementById('sidebar');
   const topbar = document.querySelector('.topbar');
   
   if (!state.isLoggedIn) {
+    // Login page: Sidebar aur Topbar chhupayein
     if (sidebar) sidebar.style.display = 'none';
     if (topbar) topbar.style.display = 'none';
   } else {
-    // Pehle ensure karein ke elements exist karein, phir show karein
-    if (sidebar) {
-      sidebar.style.display = 'flex';
-      sidebar.style.visibility = 'visible';
-    }
-    if (topbar) {
-      topbar.style.display = 'flex';
-      topbar.style.visibility = 'visible';
-    }
-      // Ensure sidebar and topbar are hidden on login page
-  const sidebar = document.getElementById('sidebar');
-  const topbar = document.querySelector('.topbar');
-  if (sidebar) sidebar.style.display = 'none';
-  if (topbar) topbar.style.display = 'none';
+    // Dashboard: Inline style hata dein taake CSS apna kaam kare
+    if (sidebar) sidebar.style.display = '';
+    if (topbar) topbar.style.display = '';
   }
-  // Hide role switcher if user is not admin (security)
+
+  // ===== ROLE SWITCHER (Sirf Admin ko dikhe) =====
   const roleSwitcher = document.getElementById('roleSwitch');
   const roleLabel = document.getElementById('roleSwitcherLabel');
   if (state.role === 'admin') {
@@ -784,7 +776,7 @@ function render(){
     roleLabel.style.display = 'none';
   }
 
-  // Auth check
+  // ===== AUTH CHECK =====
   if (!state.isLoggedIn) {
     const params = new URLSearchParams(window.location.search);
     if (params.has('token') && params.has('email')) {
@@ -793,6 +785,46 @@ function render(){
     }
     renderLogin();
     return;
+  }
+
+  // ===== NORMAL APP RENDER (Baaki ka code) =====
+  document.documentElement.dataset.theme = state.theme;
+  document.getElementById('themeBtn').innerHTML = state.theme === 'dark' ? '☀️ Light mode' : '🌙 Dark mode';
+  document.querySelectorAll('#roleSwitch button').forEach(b => b.classList.toggle('on', b.dataset.role === state.role));
+  const items = NAV[state.role] || [];
+  const activeTop = state.view === 'clientDetail' ? 'clients' : state.view;
+  document.getElementById('sbNav').innerHTML = items.map(([v, ic, l]) =>
+    `<button class="sb-item ${activeTop === v ? 'on' : ''}" data-nav="${v}"><span class="ic">${ic}</span>${l}</button>`
+  ).join('');
+  document.querySelector('.tb-search').style.visibility = (state.role === 'admin' || state.role === 'coadmin') ? 'visible' : 'hidden';
+  const avatarEl = document.getElementById('navAvatar');
+  if (state.profile.avatar && (state.role === 'user' || state.role === 'admin' || state.role === 'coadmin')) {
+    avatarEl.innerHTML = `<img src="${state.profile.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+  } else {
+    avatarEl.textContent = state.role === 'client' ? initials(curClient().name) : state.role === 'user' ? initials(state.worker) : state.role === 'coadmin' ? 'SM' : 'A';
+  }
+  renderBell();
+  if (state.view === 'settings' && state.role !== 'admin') state.view = 'dashboard';
+  if (state.view === 'team' && state.role !== 'admin' && state.role !== 'coadmin') state.view = 'dashboard';
+  if ((state.role === 'admin' || state.role === 'coadmin' || state.role === 'user') && state.view === 'profile') return renderProfile();
+  if (state.role === 'user' && state.view === 'tasks') return renderTasks();
+  if (state.role === 'client' && state.view === 'tasks') return renderTasks();
+  if (state.role === 'user' && state.view === 'dashboard') return renderUserDashboard();
+  if (state.role === 'user') return renderWorker();
+  if (state.role === 'client') return renderClient();
+  const views = {
+    dashboard: renderDashboard,
+    clients: renderClients,
+    clientDetail: renderDetail,
+    reports: renderReports,
+    invoices: renderInvoices,
+    team: renderTeam,
+    settings: renderSettings,
+    tasks: renderTasks,
+    live: renderLiveActivity
+  };
+  (views[state.view] || renderDashboard)();
+}
   }
 
   // Load data if needed
