@@ -750,6 +750,16 @@ const NAV={
 };
 
 function render(){
+  // Login page par sidebar aur topbar hide karein
+  const sidebar = document.getElementById('sidebar');
+  const topbar = document.querySelector('.topbar');
+  if (!state.isLoggedIn) {
+    if (sidebar) sidebar.style.display = 'none';
+    if (topbar) topbar.style.display = 'none';
+  } else {
+    if (sidebar) sidebar.style.display = 'flex';
+    if (topbar) topbar.style.display = 'flex';
+  }
   // Hide role switcher if user is not admin (security)
   const roleSwitcher = document.getElementById('roleSwitch');
   const roleLabel = document.getElementById('roleSwitcherLabel');
