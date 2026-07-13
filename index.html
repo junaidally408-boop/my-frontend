@@ -1519,7 +1519,7 @@ function openInvite(){
     if(!name||!email){toast('Enter name and email');return;}
     const clientId = document.getElementById('iClient')?.value || null;
     try {
-      const res = await fetch('https://my-backend.onrender.com/api/invite', {
+      const res = await fetch('https://my-backend-ptmb.onrender.com/api/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, role, clientId })
