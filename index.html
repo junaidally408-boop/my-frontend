@@ -750,15 +750,28 @@ const NAV={
 };
 
 function render(){
-  // Login page par sidebar aur topbar hide karein
+   // Fix: Sidebar aur Topbar ko login ke hisaab se hide/show karein (safely)
   const sidebar = document.getElementById('sidebar');
   const topbar = document.querySelector('.topbar');
+  
   if (!state.isLoggedIn) {
     if (sidebar) sidebar.style.display = 'none';
     if (topbar) topbar.style.display = 'none';
   } else {
-    if (sidebar) sidebar.style.display = 'flex';
-    if (topbar) topbar.style.display = 'flex';
+    // Pehle ensure karein ke elements exist karein, phir show karein
+    if (sidebar) {
+      sidebar.style.display = 'flex';
+      sidebar.style.visibility = 'visible';
+    }
+    if (topbar) {
+      topbar.style.display = 'flex';
+      topbar.style.visibility = 'visible';
+    }
+      // Ensure sidebar and topbar are hidden on login page
+  const sidebar = document.getElementById('sidebar');
+  const topbar = document.querySelector('.topbar');
+  if (sidebar) sidebar.style.display = 'none';
+  if (topbar) topbar.style.display = 'none';
   }
   // Hide role switcher if user is not admin (security)
   const roleSwitcher = document.getElementById('roleSwitch');
