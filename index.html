@@ -1567,7 +1567,7 @@ function renderLogin() {
     const errorDiv = document.getElementById('loginError');
     if (!email || !password) { errorDiv.textContent = 'Please fill all fields.'; return; }
     try {
-      const res = await fetch('https://my-backend.onrender.com/api/login', {
+      const res = await fetch('https://my-backend-ptmb.onrender.com/api/login', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
@@ -1602,7 +1602,7 @@ function renderSetPassword(token, email) {
     if (pass.length < 6) { errDiv.textContent = 'Min 6 characters.'; return; }
     if (pass !== confirm) { errDiv.textContent = 'Passwords do not match.'; return; }
     try {
-      const res = await fetch('https://my-backend.onrender.com/api/set-password', {
+      const res = await fetch('https://my-backend-ptmb.onrender.com/api/set-password', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, password: pass })
       });
