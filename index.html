@@ -597,96 +597,49 @@ function fmtHM(hours){
   return str.trim();
 }
 
-let state={
-  role:'admin', view:'dashboard', clientId:'c1', detailId:null, detailDateFrom:'', detailDateTo:'', clientDateFrom:'', clientDateTo:'',
-  workerDateFrom:'', workerDateTo:'',
-  ghlConnected:true, ghlLocation:'State-Wide Moving & Storage, Co. NJ', ghlSyncClients:true, ghlSyncForms:true,
-  search:'', sort:'remaining', filter:'all', theme:'light',
-  company:'Virtual Ally', threshold:10, rate:95, worker:'Ali Raza', workerMonth:new Date().toISOString().slice(0,7),
-  clients:[
-    {id:'c1',name:'Brightline Dental',email:'ops@brightline.co',purchased:40,consumed:34,referrals:2,history:[5,7,6,4,8,4]},
-    {id:'c2',name:'Vega Fitness',email:'hi@vegafit.com',purchased:60,consumed:52,referrals:1,history:[9,8,11,10,7,7]},
-    {id:'c3',name:'Kessler Law',email:'admin@kesslerlaw.com',purchased:25,consumed:9,referrals:0,history:[2,1,3,1,1,1]},
-    {id:'c4',name:'Nomad Coffee Co',email:'team@nomad.coffee',purchased:20,consumed:20,referrals:3,history:[4,3,5,3,3,2]},
-    {id:'c5',name:'Aria Interiors',email:'studio@aria.design',purchased:80,consumed:41,referrals:0,history:[6,8,7,7,7,6]},
-    {id:'c6',name:'Peak Roofing',email:'jobs@peakroof.io',purchased:30,consumed:23,referrals:1,history:[4,5,4,3,4,3]},
-  ],
-  team:[
-    {id:'t1',name:'You',email:'admin@virtualally.io',role:'admin',status:'active',phone:'+1 555-123-4567'},
-    {id:'t2',name:'Sara Malik',email:'sara@virtualally.io',role:'coadmin',status:'active',phone:'+1 555-234-5678'},
-    {id:'t5',name:'Ali Raza',email:'ali@virtualally.io',role:'user',status:'active',phone:'+1 555-345-6789',assigned:['c1','c2','c5','c6']},
-    {id:'t3',name:'Brightline Dental',email:'ops@brightline.co',role:'client',status:'active',clientId:'c1',phone:'+1 555-456-7890'},
-    {id:'t4',name:'Vega Fitness',email:'hi@vegafit.com',role:'client',status:'invited',clientId:'c2',phone:'+1 555-567-8901'},
-  ],
-  logs:[
-    {id:'l0a',clientId:'c1',date:'2026-07-02',hours:2,note:'Weekly check-in',by:'Ali Raza'},
-    {id:'l0b',clientId:'c5',date:'2026-07-01',hours:3,note:'Homepage tweaks',by:'Ali Raza'},
-    {id:'l1',clientId:'c1',date:'2026-06-30',hours:2,note:'Intake automation tweaks',by:'Ali Raza'},
-    {id:'l2',clientId:'c1',date:'2026-06-28',hours:4,note:'Landing page build',by:'Ali Raza'},
-    {id:'l3',clientId:'c5',date:'2026-06-29',hours:3,note:'Design revisions',by:'Sara Malik'},
-    {id:'l4',clientId:'c2',date:'2026-06-27',hours:5,note:'CRM setup',by:'Ali Raza'},
-    {id:'l5',clientId:'c6',date:'2026-06-26',hours:2,note:'Reporting dashboard',by:'Ali Raza'},
-  ],
-  invoices:[
-    {id:'inv1',clientId:'c2',period:'June 2026',hours:12,rate:95,status:'paid',date:'2026-07-01'},
-    {id:'inv2',clientId:'c5',period:'June 2026',hours:20,rate:95,status:'sent',date:'2026-07-01'},
-    {id:'inv3',clientId:'c1',period:'June 2026',hours:10,rate:95,status:'draft',date:'2026-07-02'},
-  ],
-  activity:{c1:[{t:'Automation build — intake flow',d:'2 days ago',amt:-4,k:'log'},{t:'Purchased 20-hour block',d:'3 weeks ago',amt:20,k:'buy'}]},
-  events:[
-    {ic:'⏱',text:'4h logged for Brightline Dental',d:'2 days ago',amt:-4},
-    {ic:'💳',text:'Vega Fitness purchased 10 hours',d:'5 days ago',amt:10},
-    {ic:'🧾',text:'Invoice sent to Aria Interiors',d:'6 days ago',amt:0},
-    {ic:'👤',text:'Aria Interiors added as a client',d:'1 week ago',amt:0},
-  ],
-  trend:[22,26,24,28,31,19],
-  // AUTH STATE ADDED
+let state = {
+  role: 'admin',
+  view: 'dashboard',
+  clientId: 'c1',
+  detailId: null,
+  detailDateFrom: '',
+  detailDateTo: '',
+  clientDateFrom: '',
+  clientDateTo: '',
+  workerDateFrom: '',
+  workerDateTo: '',
+  search: '',
+  sort: 'remaining',
+  filter: 'all',
+  theme: 'light',
+  company: 'Virtual Ally',
+  threshold: 10,
+  rate: 95,
+  worker: 'Ali Raza',
+  workerMonth: new Date().toISOString().slice(0,7),
+  // DATA WILL BE LOADED FROM API
+  clients: [],
+  team: [],
+  logs: [],
+  invoices: [],
+  tasks: [],
+  events: [],
+  trend: [0,0,0,0,0,0],
   isLoggedIn: false,
   authUser: null,
   authToken: '',
-  tasks: [
-    {
-      id:'t1', title:'Update landing page copy', description:'Client requested new headlines for the hero section.',
-      status:'in-progress', priority:'high', clientId:'c1', assignedTo:['t5','t2'], dueDate:'2026-07-10',
-      tags:['Design','Copy'], createdBy:'client', createdByName:'Brightline Dental', createdAt:'2026-07-05',
-      timeSpent:0, timerRunning:false, timerStart:null, timeEntries:[],
-      subtasks:[
-        {id:'st1',text:'Draft 3 headline options',desc:'Include mobile variants',done:false,timeSpent:0,timerRunning:false,timerStart:null,timeEntries:[],comments:[]},
-        {id:'st2',text:'Write CTA button copy',desc:'Focus on conversion',done:false,timeSpent:0,timerRunning:false,timerStart:null,timeEntries:[],comments:[]}
-      ],
-      comments:[
-        { id:'c1', author:'t5', authorName:'Ali Raza', authorRole:'user', text:'Working on this now.', createdAt:'2026-07-06', readBy:['t5'], replies:[
-          { id:'r1', author:'t3', authorName:'Brightline Dental', authorRole:'client', text:'Great, thanks Ali!', createdAt:'2026-07-07', readBy:['t3'], replies:[] }
-        ] },
-        { id:'c2', author:'t2', authorName:'Sara Malik', authorRole:'coadmin', text:'I can help with the design part.', createdAt:'2026-07-07', readBy:['t2'], replies:[] }
-      ]
-    },
-    {
-      id:'t2', title:'Setup CRM automation', description:'Configure the new CRM pipeline.',
-      status:'todo', priority:'medium', clientId:'c2', assignedTo:['t5'], dueDate:'2026-07-15',
-      tags:['Automation'], createdBy:'admin', createdByName:'You', createdAt:'2026-07-04',
-      timeSpent:0, timerRunning:false, timerStart:null, timeEntries:[],
-      subtasks:[{id:'st3',text:'Create pipeline stages',desc:'Lead→Qualified→Client',done:false,timeSpent:0,timerRunning:false,timerStart:null,timeEntries:[],comments:[]}],
-      comments:[
-        { id:'c3', author:'t5', authorName:'Ali Raza', authorRole:'user', text:'Starting tomorrow.', createdAt:'2026-07-05', readBy:['t5'], replies:[] }
-      ]
-    },
-    {
-      id:'t3', title:'Design new logo concepts', description:'3 variations for brand refresh.',
-      status:'complete', priority:'low', clientId:'c5', assignedTo:['t2'], dueDate:'2026-06-30',
-      tags:['Design','Brand'], createdBy:'client', createdByName:'Aria Interiors', createdAt:'2026-06-28',
-      timeSpent:0, timerRunning:false, timerStart:null, timeEntries:[], subtasks:[], comments:[]
-    }
-  ],
-  taskFilterStatus:'all', taskFilterClient:'all', taskFilterAssignee:'all',
-  timer:{isRunning:false,isOnBreak:false,workingStart:null,breakStart:null,totalWorking:0,totalBreak:0,status:'stopped',rafId:null},
-  timerActivity:[],
-  profile:{avatar:null},
-  userTimers:{},
-  screenshotInterval:null,
-  liveFilterUser:'all',
-  liveFilterFrom:'',
-  liveFilterTo:''
+  taskFilterStatus: 'all',
+  taskFilterClient: 'all',
+  taskFilterAssignee: 'all',
+  timer: { isRunning: false, isOnBreak: false, workingStart: null, breakStart: null, totalWorking: 0, totalBreak: 0, status: 'stopped', rafId: null },
+  timerActivity: [],
+  profile: { avatar: null },
+  userTimers: {},
+  screenshotInterval: null,
+  liveFilterUser: 'all',
+  liveFilterFrom: '',
+  liveFilterTo: '',
+  isDataLoaded: false
 };
 
 // ============================================================
