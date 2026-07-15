@@ -680,65 +680,61 @@ function addAssignee(taskId, userId){ const t=state.tasks.find(x=>x.id===taskId)
 //  API DATA LOADER (AUTOMATIC - with _id mapping)
 // ============================================================
 async function loadData() {
-  try {
-    console.log('⏳ Loading data from API...');
-    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.authToken}` };
-    const baseUrl = 'https://my-backend-ptmb.onrender.com';
+  console.log('⏳ Loading data from API...');
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.authToken}` };
+  const baseUrl = 'https://my-backend-ptmb.onrender.com';
 
-    // ===== CLIENTS =====
-    try {
-      const clientsRes = await fetch(baseUrl + '/api/clients', { headers });
-      if (clientsRes.ok) {
-        const data = await clientsRes.json();
-        state.clients = Array.isArray(data) ? data.map(c => ({ ...c, id: c._id })) : [];
-      } else {
-        console.warn('⚠️ Failed to load clients:', clientsRes.status);
-        state.clients = [];
-      }
-    } catch (e) {
-      console.warn('⚠️ Clients fetch error:', e);
+  // ===== CLIENTS =====
+  try {
+    const res = await fetch(baseUrl + '/api/clients', { headers });
+    if (res.ok) {
+      const data = await res.json();
+      state.clients = Array.isArray(data) ? data.map(c => ({ ...c, id: c._id })) : [];
+      console.log('✅ Clients loaded:', state.clients.length);
+    } else {
+      console.warn('⚠️ Clients API returned:', res.status, await res.text());
       state.clients = [];
     }
+  } catch (err) {
+    console.error('❌ Clients fetch error:', err);
+    state.clients = [];
+  }
 
-    // ===== TASKS =====
-    try {
-      const tasksRes = await fetch(baseUrl + '/api/tasks', { headers });
-      if (tasksRes.ok) {
-        const data = await tasksRes.json();
-        state.tasks = Array.isArray(data) ? data.map(t => ({ ...t, id: t._id })) : [];
-      } else {
-        console.warn('⚠️ Failed to load tasks:', tasksRes.status);
-        state.tasks = [];
-      }
-    } catch (e) {
-      console.warn('⚠️ Tasks fetch error:', e);
+  // ===== TASKS =====
+  try {
+    const res = await fetch(baseUrl + '/api/tasks', { headers });
+    if (res.ok) {
+      const data = await res.json();
+      state.tasks = Array.isArray(data) ? data.map(t => ({ ...t, id: t._id })) : [];
+      console.log('✅ Tasks loaded:', state.tasks.length);
+    } else {
+      console.warn('⚠️ Tasks API returned:', res.status, await res.text());
       state.tasks = [];
     }
+  } catch (err) {
+    console.error('❌ Tasks fetch error:', err);
+    state.tasks = [];
+  }
 
-    // ===== TEAM =====
-    try {
-      const teamRes = await fetch(baseUrl + '/api/team', { headers });
-      if (teamRes.ok) {
-        const data = await teamRes.json();
-        state.team = Array.isArray(data) ? data.map(u => ({ ...u, id: u._id })) : [];
-      } else {
-        console.warn('⚠️ Failed to load team:', teamRes.status);
-        state.team = [];
-      }
-    } catch (e) {
-      console.warn('⚠️ Team fetch error:', e);
+  // ===== TEAM =====
+  try {
+    const res = await fetch(baseUrl + '/api/team', { headers });
+    if (res.ok) {
+      const data = await res.json();
+      state.team = Array.isArray(data) ? data.map(u => ({ ...u, id: u._id })) : [];
+      console.log('✅ Team loaded:', state.team.length);
+    } else {
+      console.warn('⚠️ Team API returned:', res.status, await res.text());
       state.team = [];
     }
-
-    state.isDataLoaded = true;
-    console.log('✅ Data loaded successfully!');
-    render();
-  } catch (error) {
-    console.error('❌ Failed to load data:', error);
-    toast('Failed to load some data. Please refresh.', 'error');
-    state.isDataLoaded = true; // Prevent infinite loop
-    render();
+  } catch (err) {
+    console.error('❌ Team fetch error:', err);
+    state.team = [];
   }
+
+  state.isDataLoaded = true;
+  console.log('✅ Data loading complete!');
+  render();
 }
 
 // ============================================================
