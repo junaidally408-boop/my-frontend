@@ -794,6 +794,7 @@ function render(){
       state.role = state.authUser.role;
       state.isLoggedIn = true;
       state.isDataLoaded = false;
+      state.clientId = state.authUser.clientId || null;
       // Agar client hai toh view clienthome set karein
       if (state.role === 'client') state.view = 'clienthome';
       else state.view = 'dashboard';
