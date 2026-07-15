@@ -882,7 +882,7 @@ function renderDashboard(){
 }
 
 function renderClient(){
-  // Agar koi client nahi mila toh message dikhayein
+  // Agar clients empty hain toh message dikhayein
   if (!state.clients || state.clients.length === 0) {
     app.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">Client portal</div><h1>Your Hours</h1></div></div>
@@ -957,7 +957,6 @@ function renderClient(){
   });
   wireDateFilter('cliDate', (from, to) => { state.clientDateFrom = from; state.clientDateTo = to; renderClient(); });
 }
-
 function renderDetail(){
   const c=state.clients.find(x=>x.id===state.detailId);
   if(!c){state.view='clients';return renderClients();}
