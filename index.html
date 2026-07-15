@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Virtual Ally — Complete</title>
+<title>Virtual Ally</title>
 <link rel="icon" href="https://vibe.filesafe.space/1781548817483658086/attachments/4f7e2bb5-46d6-459e-8104-44ee1ccee4c0.webp" type="image/webp">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -524,7 +524,11 @@
 <div class="notif" id="notifPanel"><h4>Notifications</h4><ul id="notifList"></ul></div>
 <div class="overlay" id="overlay"></div>
 <div class="toast-wrap" id="toastWrap"></div>
+
 <script>
+// ============================================================
+//  FULL SCRIPT — ALL FUNCTIONS, SYNTAX ERROR FIXED
+// ============================================================
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun'];
 const fmt=n=>(Math.round(n*10)/10).toLocaleString();
 const money=n=>'$'+Math.round(n).toLocaleString();
@@ -623,8 +627,40 @@ function endTimer(){ const userId=state.worker; const t=getUserTimer(userId); if
 function captureAutoScreenshot(){ /* placeholder */ }
 function captureScreenshot(cardIndex){ toast('Screenshot captured (simulated)'); }
 function fallbackScreenshot(cardIndex,activity){ /* placeholder */ }
-function showCommentNotification(comment,taskTitle,taskId){ const container=document.getElementById('commentNotifications'); if(!container)return; const notif=document.createElement('div'); notif.className='comment-notification fade-in-right'; notif.innerHTML='<div class="cn-content"><div class="cn-header"><span class="cn-author">'+comment.authorName+'</span><span class="cn-task">on <span>"'+taskTitle+'"</span></span><button class="cn-close" onclick="this.closest('.comment-notification').remove()">×</button></div><div class="cn-body">'+comment.text+'</div><div class="cn-footer"><button class="btn sm" onclick="closeCommentNotifications(); openTaskDetail(\''+taskId+'\')">💬 Reply</button></div></div>'; container.appendChild(notif); setTimeout(()=>{ if(notif.parentElement){ notif.style.opacity='0'; notif.style.transform='translateX(50px)'; notif.style.transition='all 0.3s ease'; setTimeout(()=>{ if(notif.parentElement) notif.remove(); },300); } },6000); }
+
+// ============================================================
+//  FIXED: showCommentNotification with backticks (no syntax error)
+// ============================================================
+function showCommentNotification(comment, taskTitle, taskId) {
+  const container = document.getElementById('commentNotifications');
+  if (!container) return;
+  const notif = document.createElement('div');
+  notif.className = 'comment-notification fade-in-right';
+  notif.innerHTML = `<div class="cn-content">
+    <div class="cn-header">
+      <span class="cn-author">${comment.authorName}</span>
+      <span class="cn-task">on <span>"${taskTitle}"</span></span>
+      <button class="cn-close" onclick="this.closest('.comment-notification').remove()">×</button>
+    </div>
+    <div class="cn-body">${comment.text}</div>
+    <div class="cn-footer">
+      <button class="btn sm" onclick="closeCommentNotifications(); openTaskDetail('${taskId}')">💬 Reply</button>
+    </div>
+  </div>`;
+  container.appendChild(notif);
+  setTimeout(() => {
+    if (notif.parentElement) {
+      notif.style.opacity = '0';
+      notif.style.transform = 'translateX(50px)';
+      notif.style.transition = 'all 0.3s ease';
+      setTimeout(() => {
+        if (notif.parentElement) notif.remove();
+      }, 300);
+    }
+  }, 6000);
+}
 function closeCommentNotifications(){ const container=document.getElementById('commentNotifications'); if(container) container.innerHTML=''; }
+
 const app=document.getElementById('app');
 const NAV={admin:[['dashboard','📊','Overview'],['clients','👥','Clients'],['tasks','✅','Tasks'],['reports','📈','Reports'],['team','🔐','Team & Access'],['settings','⚙️','Settings'],['live','🔄','Live Activity'],['profile','👤','My Profile']],coadmin:[['dashboard','📊','Overview'],['clients','👥','Clients'],['tasks','✅','Tasks'],['reports','📈','Reports'],['team','🔐','Team & Access'],['live','🔄','Live Activity'],['profile','👤','My Profile']],user:[['dashboard','📊','Dashboard'],['worker','⏱','Timesheet'],['tasks','✅','My Tasks'],['profile','👤','My Profile']],client:[['clienthome','📋','My Hours'],['tasks','✅','My Tasks']]};
 function render(){
