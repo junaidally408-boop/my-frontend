@@ -1297,6 +1297,44 @@ function renderLogin() {
     });
   }
 
+  // ===== LOGIN BUTTON HANDLER (UPDATED) =====
+  document.getElementById('loginBtn').onclick = async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    const errorDiv = document.getElementById('loginError');
+    
+    if (!email || !password) {
+      errorDiv.textContent = 'Please fill all fields.';
+      return;
+    }
+    
+    try {
+      const res = await fetch('https://my-backend-ptmb.onrender.com/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Login failed');
+      
+      state.authToken = data.token;
+      state.authUser = data.user;
+      // 🔥 FIX: Client role set karein (yehi line add ki gayi hai)
+      state.role = data.user.role;
+      
+      localStorage.setItem('va_token', data.token);
+      localStorage.setItem('va_user', JSON.stringify(data.user));
+      state.isLoggedIn = true;
+      state.view = data.user.role === 'client' ? 'clienthome' : 'dashboard';
+      state.isDataLoaded = false;
+      
+      toast('Login successful!', 'brand');
+      render();
+    } catch(err) {
+      errorDiv.textContent = err.message;
+    }
+  };
+}
   document.getElementById('loginBtn').onclick = async () => {
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value.trim();
