@@ -1307,9 +1307,10 @@ function renderLogin() {
       
       state.authToken = data.token;
       state.authUser = data.user;
-      // 🔥 STEP 2 FIX: Client role set karo
       state.role = data.user.role;
-      
+      // 🔥 FIX: ClientId set karein (client ke liye important)
+      state.clientId = data.user.clientId || null;
+
       localStorage.setItem('va_token', data.token);
       localStorage.setItem('va_user', JSON.stringify(data.user));
       state.isLoggedIn = true;
@@ -1323,7 +1324,6 @@ function renderLogin() {
     }
   };
 }
-
 function renderSetPassword(token, email) {
   const logoUrl = 'https://vibe.filesafe.space/1781548817483658086/attachments/4f7e2bb5-46d6-459e-8104-44ee1ccee4c0.webp';
   app.innerHTML = `
