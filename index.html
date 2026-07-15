@@ -685,25 +685,49 @@ async function loadData() {
     const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.authToken}` };
     const baseUrl = 'https://my-backend-ptmb.onrender.com';
 
-    // CLIENTS: _id -> id
-    const clientsRes = await fetch(baseUrl + '/api/clients', { headers });
-    if (clientsRes.ok) {
-      const data = await clientsRes.json();
-      state.clients = data.map(c => ({ ...c, id: c._id }));
+    // ===== CLIENTS =====
+    try {
+      const clientsRes = await fetch(baseUrl + '/api/clients', { headers });
+      if (clientsRes.ok) {
+        const data = await clientsRes.json();
+        state.clients = Array.isArray(data) ? data.map(c => ({ ...c, id: c._id })) : [];
+      } else {
+        console.warn('⚠️ Failed to load clients:', clientsRes.status);
+        state.clients = [];
+      }
+    } catch (e) {
+      console.warn('⚠️ Clients fetch error:', e);
+      state.clients = [];
     }
 
-    // TASKS: _id -> id
-    const tasksRes = await fetch(baseUrl + '/api/tasks', { headers });
-    if (tasksRes.ok) {
-      const data = await tasksRes.json();
-      state.tasks = data.map(t => ({ ...t, id: t._id }));
+    // ===== TASKS =====
+    try {
+      const tasksRes = await fetch(baseUrl + '/api/tasks', { headers });
+      if (tasksRes.ok) {
+        const data = await tasksRes.json();
+        state.tasks = Array.isArray(data) ? data.map(t => ({ ...t, id: t._id })) : [];
+      } else {
+        console.warn('⚠️ Failed to load tasks:', tasksRes.status);
+        state.tasks = [];
+      }
+    } catch (e) {
+      console.warn('⚠️ Tasks fetch error:', e);
+      state.tasks = [];
     }
 
-    // TEAM: _id -> id
-    const teamRes = await fetch(baseUrl + '/api/team', { headers });
-    if (teamRes.ok) {
-      const data = await teamRes.json();
-      state.team = data.map(u => ({ ...u, id: u._id }));
+    // ===== TEAM =====
+    try {
+      const teamRes = await fetch(baseUrl + '/api/team', { headers });
+      if (teamRes.ok) {
+        const data = await teamRes.json();
+        state.team = Array.isArray(data) ? data.map(u => ({ ...u, id: u._id })) : [];
+      } else {
+        console.warn('⚠️ Failed to load team:', teamRes.status);
+        state.team = [];
+      }
+    } catch (e) {
+      console.warn('⚠️ Team fetch error:', e);
+      state.team = [];
     }
 
     state.isDataLoaded = true;
@@ -711,7 +735,9 @@ async function loadData() {
     render();
   } catch (error) {
     console.error('❌ Failed to load data:', error);
-    toast('Failed to load data. Please refresh.', 'error');
+    toast('Failed to load some data. Please refresh.', 'error');
+    state.isDataLoaded = true; // Prevent infinite loop
+    render();
   }
 }
 
