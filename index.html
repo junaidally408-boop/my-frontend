@@ -764,8 +764,13 @@ function render(){
     try {
       state.authToken = savedToken;
       state.authUser = JSON.parse(savedUser);
+      // 🔥 FIX: Role restore karein (Client/Admin dono ke liye)
+      state.role = state.authUser.role;
       state.isLoggedIn = true;
       state.isDataLoaded = false;
+      // Agar client hai toh view clienthome set karein
+      if (state.role === 'client') state.view = 'clienthome';
+      else state.view = 'dashboard';
       console.log('✅ Session restored from localStorage');
     } catch (e) {
       console.error('❌ Failed to restore session', e);
