@@ -677,7 +677,7 @@ function removeAssignee(taskId, userId){ const t=state.tasks.find(x=>x.id===task
 function addAssignee(taskId, userId){ const t=state.tasks.find(x=>x.id===taskId); if(!t) return; if(!t.assignedTo) t.assignedTo=[]; if(!t.assignedTo.includes(userId)){ t.assignedTo.push(userId); logEvent('👤','Added '+getUserName(userId)+' to task "'+t.title+'"',0); toast('Added '+getUserName(userId),'brand'); renderTasks(); } }
 
 // ============================================================
-//  API DATA LOADER (AUTOMATIC)
+//  API DATA LOADER (AUTOMATIC - with _id mapping)
 // ============================================================
 async function loadData() {
   try {
@@ -685,17 +685,25 @@ async function loadData() {
     const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.authToken}` };
     const baseUrl = 'https://my-backend-ptmb.onrender.com';
 
+    // CLIENTS: _id -> id
     const clientsRes = await fetch(baseUrl + '/api/clients', { headers });
-    if (clientsRes.ok) state.clients = await clientsRes.json();
+    if (clientsRes.ok) {
+      const data = await clientsRes.json();
+      state.clients = data.map(c => ({ ...c, id: c._id }));
+    }
 
+    // TASKS: _id -> id
     const tasksRes = await fetch(baseUrl + '/api/tasks', { headers });
-    if (tasksRes.ok) state.tasks = await tasksRes.json();
+    if (tasksRes.ok) {
+      const data = await tasksRes.json();
+      state.tasks = data.map(t => ({ ...t, id: t._id }));
+    }
 
+    // TEAM: _id -> id
     const teamRes = await fetch(baseUrl + '/api/team', { headers });
     if (teamRes.ok) {
-      const teamData = await teamRes.json();
-      // 🔥 FIX: MongoDB _id ko id mein map karein
-      state.team = teamData.map(u => ({ ...u, id: u._id }));
+      const data = await teamRes.json();
+      state.team = data.map(u => ({ ...u, id: u._id }));
     }
 
     state.isDataLoaded = true;
@@ -835,7 +843,7 @@ function render(){
 function renderBell(){const n=lowClients().length,badge=document.getElementById('bellBadge');badge.textContent=n;badge.style.display=n?'grid':'none';const list=document.getElementById('notifList');if(!n){list.innerHTML='<li style="color:var(--slate);font-size:13px">All clear — no clients below '+state.threshold+' hours.</li>';return;}list.innerHTML=lowClients().sort((a,b)=>remaining(a)-remaining(b)).map(c=>{const crit=status(c)==='crit';return '<li><span class="ni '+(crit?'crit':'')+'">'+(crit?'✕':'!')+'</span><div><div class="nt">'+c.name+'</div><div class="nd">'+(crit?'Out of hours — needs a top-up':fmt(remaining(c))+' hours left (below '+state.threshold+')')+'</div></div></li>';}).join('');}
 
 // ============================================================
-//  DASHBOARD
+//  DASHBOARD, CLIENTS, REPORTS, INVOICES, TEAM, SETTINGS, LIVE, CLIENT, USER, WORKER, PROFILE, TASKS
 // ============================================================
 function renderDashboard(){
   const cs=state.clients,sold=cs.reduce((a,c)=>a+c.purchased,0),used=cs.reduce((a,c)=>a+c.consumed,0),low=lowClients().length;
@@ -845,9 +853,6 @@ function renderDashboard(){
   document.getElementById('qLog').onclick=()=>openLog();document.getElementById('qPurchase').onclick=()=>openPurchaseIntake();
 }
 
-// ============================================================
-//  CLIENTS
-// ============================================================
 function renderClients(){
   const cs=state.clients,isAdmin=state.role==='admin'||state.role==='coadmin';
   let fil=cs.filter(c=>c.name.toLowerCase().includes(state.search.toLowerCase()));
@@ -1178,24 +1183,22 @@ function toast(msg,kind){const w=document.getElementById('toastWrap'),t=document
 function openLog(id){const by=state.worker||'You';showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Log hours</h3></div><div class="modal-body"><div class="field-m"><label>Client</label><select id="logClient">'+state.clients.map(c=>'<option value="'+c.id+'"'+(c.id===id?' selected':'')+'>'+c.name+' — '+fmt(remaining(c))+'h left</option>').join('')+'</select></div><div style="display:flex;gap:12px"><div class="field-m" style="flex:1"><label>Date</label><input type="date" id="logDate" value="'+todayStr()+'"></div><div class="field-m" style="flex:1"><label>Hours</label><input type="number" id="logHours" min="0.25" step="0.25"></div></div><div class="field-m"><label>Note</label><input id="logNote"></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="logDo">Log hours</button></div>');document.getElementById('logDo').onclick=()=>{const cid=document.getElementById('logClient').value,h=+document.getElementById('logHours').value,date=document.getElementById('logDate').value||todayStr(),note=document.getElementById('logNote').value.trim(),c=state.clients.find(x=>x.id===cid);if(!h||h<=0){toast('Enter hours');return;}c.consumed+=h;state.logs.unshift({id:'l'+Date.now(),clientId:cid,date,hours:h,note,by});toast('Logged '+fmtHM(h)+' for '+c.name,'brand');closeModal();render();};}
 function openBuy(id){const c=state.clients.find(x=>x.id===id);showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Add hours</h3></div><div class="modal-body"><div class="field-m"><label>Hours</label><input type="number" id="buyH" min="1" value="20"></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="buyDo">Add</button></div>');document.getElementById('buyDo').onclick=()=>{const h=+document.getElementById('buyH').value||0;if(h<=0){toast('Enter hours');return;}c.purchased+=h;toast('Added '+h+' hours','brand');closeModal();render();};}
 
-function openAdd(){
-  showModal(`<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Add client</h3></div><div class="modal-body"><div class="field-m"><label>Name</label><input id="nName"></div><div class="field-m"><label>Email</label><input id="nEmail"></div><div class="field-m"><label>Hours</label><input id="nHours" type="number" value="40"></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="addDo">Add</button></div>`);
-  document.getElementById('addDo').onclick = async () => {
-    const name = document.getElementById('nName').value.trim();
-    if(!name){ toast('Enter name'); return; }
-    const email = document.getElementById('nEmail').value.trim() || '—';
-    const purchased = +document.getElementById('nHours').value || 0;
+// STEP 1 FIX: Extra Client Field Hat Gayi
+function openInvite(){
+  showModal(`<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Invite member</h3></div><div class="modal-body"><div class="field-m"><label>Name</label><input id="iName"></div><div class="field-m"><label>Email</label><input id="iEmail"></div><div class="field-m"><label>Role</label><select id="iRole"><option value="coadmin">Admin</option><option value="user">User</option><option value="client">Client</option></select></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="invDo">Send Invite</button></div>`);
+  document.getElementById('invDo').onclick = async () => {
+    const name = document.getElementById('iName').value.trim();
+    const email = document.getElementById('iEmail').value.trim();
+    const role = document.getElementById('iRole').value;
+    if(!name || !email){ toast('Enter name and email'); return; }
     try {
-      const res = await fetch('https://my-backend-ptmb.onrender.com/api/clients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.authToken}` },
-        body: JSON.stringify({ name, email, purchased })
+      const res = await fetch('https://my-backend-ptmb.onrender.com/api/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, role, clientId: null })
       });
-      if(!res.ok) throw new Error('Failed to add');
-      toast('Client added!', 'brand');
+      if(!res.ok) throw new Error('Failed to send');
+      toast('Invitation sent to ' + name + '!', 'brand');
       closeModal();
-      state.isDataLoaded = false;
-      render();
     } catch(err) { toast('Error: ' + err.message); }
   };
 }
@@ -1226,25 +1229,6 @@ function openEdit(id){
   };
 }
 
-function openInvite(){
-  showModal(`<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Invite member</h3></div><div class="modal-body"><div class="field-m"><label>Name</label><input id="iName"></div><div class="field-m"><label>Email</label><input id="iEmail"></div><div class="field-m"><label>Role</label><select id="iRole"><option value="coadmin">Admin</option><option value="user">User</option><option value="client">Client</option></select></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="invDo">Send Invite</button></div>`);
-  document.getElementById('invDo').onclick = async () => {
-    const name = document.getElementById('iName').value.trim();
-    const email = document.getElementById('iEmail').value.trim();
-    const role = document.getElementById('iRole').value;
-    if(!name || !email){ toast('Enter name and email'); return; }
-    try {
-      const res = await fetch('https://my-backend-ptmb.onrender.com/api/invite', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, role, clientId: null })
-      });
-      if(!res.ok) throw new Error('Failed to send');
-      toast('Invitation sent to ' + name + '!', 'brand');
-      closeModal();
-    } catch(err) { toast('Error: ' + err.message); }
-  };
-}
-
 function openTimeEntry(logId){const ex=logId?state.logs.find(l=>l.id===logId):null;const defDate=ex?ex.date:todayStr();showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>'+(ex?'Edit':'Add')+' time entry</h3></div><div class="modal-body"><div class="field-m"><label>Client</label><select id="teClient">'+state.clients.map(c=>'<option value="'+c.id+'"'+(ex&&ex.clientId===c.id?' selected':'')+'>'+c.name+'</option>').join('')+'</select></div><div style="display:flex;gap:12px"><div class="field-m" style="flex:1"><label>Date</label><input type="date" id="teDate" value="'+defDate+'"></div><div class="field-m" style="flex:1"><label>Hours</label><input type="number" id="teHours" step="0.25" value="'+(ex?ex.hours:'')+'"></div></div><div class="field-m"><label>Note</label><input id="teNote" value="'+(ex?ex.note||'':'')+'"></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="teDo">'+(ex?'Save':'Add')+'</button></div>');document.getElementById('teDo').onclick=()=>{const cid=document.getElementById('teClient').value,date=document.getElementById('teDate').value||todayStr(),h=+document.getElementById('teHours').value,note=document.getElementById('teNote').value.trim();if(!h||h<=0){toast('Enter hours');return;}if(ex){const c=state.clients.find(x=>x.id===cid);c.consumed+=h-ex.hours;ex.clientId=cid;ex.date=date;ex.hours=h;ex.note=note;toast('Entry updated','brand');}else{const c=state.clients.find(x=>x.id===cid);c.consumed+=h;state.logs.unshift({id:'l'+Date.now(),clientId:cid,date,hours:h,note,by:state.worker});toast('Entry added','brand');}closeModal();render();};}
 function openAssign(id){const m=state.team.find(x=>x.id===id);const cur=new Set(m.assigned||[]);showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Assign clients</h3></div><div class="modal-body">'+state.clients.map(c=>'<label class="chk"><input type="checkbox" value="'+c.id+'" '+(cur.has(c.id)?'checked':'')+'><span>'+c.name+'</span></label>').join('')+'</div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="asDo">Save</button></div>');document.getElementById('asDo').onclick=()=>{m.assigned=[...overlay.querySelectorAll('.chk input:checked')].map(i=>i.value);toast('Assignments updated','brand');closeModal();render();};}
 function openInvoice(){showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>New invoice</h3></div><div class="modal-body"><div class="field-m"><label>Client</label><select id="ivClient">'+state.clients.map(c=>'<option value="'+c.id+'" data-con="'+c.consumed+'">'+c.name+'</option>').join('')+'</select></div><div style="display:flex;gap:12px"><div class="field-m" style="flex:1"><label>Period</label><input id="ivPeriod" value="'+monthLabel(shiftMonth(todayStr().slice(0,7),-1))+'"></div><div class="field-m" style="flex:1"><label>Hours</label><input type="number" id="ivHours" value="'+state.clients[0]?.consumed||0+'"></div></div><div class="field-m"><label>Rate</label><input type="number" id="ivRate" value="'+state.rate+'"></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="ivDo">Create</button></div>');document.getElementById('ivDo').onclick=()=>{const cid=document.getElementById('ivClient').value,h=+document.getElementById('ivHours').value||0,rate=+document.getElementById('ivRate').value||state.rate;if(h<=0){toast('Enter hours');return;}state.invoices.unshift({id:'inv'+Date.now(),clientId:cid,period:document.getElementById('ivPeriod').value.trim()||'Current',hours:h,rate,status:'draft',date:todayStr()});toast('Invoice created','brand');closeModal();render();};}
@@ -1256,7 +1240,7 @@ function openNewTask(){showModal('<button class="close-x" onclick="closeModal()"
 function openTaskEdit(taskId){const t=state.tasks.find(x=>x.id===taskId);if(!t)return;const clientOpts=state.clients.map(c=>'<option value="'+c.id+'"'+(c.id===t.clientId?' selected':'')+'>'+c.name+'</option>').join('');const assignOpts=state.team.filter(m=>m.role==='user'||m.role==='admin'||m.role==='coadmin').map(m=>'<option value="'+m.id+'"'+(t.assignedTo&&t.assignedTo.includes(m.id)?' selected':'')+'>'+m.name+'</option>').join('');const statusOpts=statusOptions.map(s=>'<option value="'+s.value+'"'+(t.status===s.value?' selected':'')+'>'+s.label+'</option>').join('');showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Edit Task</h3></div><div class="modal-body"><div class="field-m"><label>Title</label><input id="etTitle" value="'+t.title.replace(/"/g,'&quot;')+'"></div><div class="field-m"><label>Description</label><textarea id="etDesc" rows="3">'+(t.description||'').replace(/"/g,'&quot;')+'</textarea></div><div class="field-m"><label>Client</label><select id="etClient">'+clientOpts+'</select></div><div class="field-m"><label>Assign to (multiple)</label><select id="etAssign" multiple size="3">'+assignOpts+'</select></div><div style="display:flex;gap:12px"><div class="field-m" style="flex:1"><label>Status</label><select id="etStatus">'+statusOpts+'</select></div><div class="field-m" style="flex:1"><label>Priority</label><select id="etPriority"><option value="low"'+(t.priority==='low'?' selected':'')+'>Low</option><option value="medium"'+(t.priority==='medium'?' selected':'')+'>Medium</option><option value="high"'+(t.priority==='high'?' selected':'')+'>High</option></select></div></div><div class="field-m"><label>Due Date</label><input type="date" id="etDue" value="'+(t.dueDate||'')+'"></div><div class="field-m"><label>Tags (comma separated)</label><input id="etTags" value="'+(t.tags?t.tags.join(', '):'')+'"></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()" style="margin-right:auto;color:var(--highlight);border-color:var(--red-soft)" id="etDel">Delete</button><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="etDo">Save</button></div>');document.getElementById('etDo').onclick=async ()=>{const payload={title:document.getElementById('etTitle').value.trim()||t.title,description:document.getElementById('etDesc').value.trim(),clientId:document.getElementById('etClient').value,assignedTo:Array.from(document.getElementById('etAssign').selectedOptions).map(o=>o.value),status:document.getElementById('etStatus').value,priority:document.getElementById('etPriority').value,dueDate:document.getElementById('etDue').value||'',tags:document.getElementById('etTags').value.split(',').map(s=>s.trim()).filter(Boolean)};try{const res=await fetch(`https://my-backend-ptmb.onrender.com/api/tasks/${taskId}`,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.authToken}`},body:JSON.stringify(payload)});if(!res.ok)throw new Error('Failed to update');toast('Task updated!','brand');closeModal();state.isDataLoaded=false;render();}catch(err){toast('Error: '+err.message);}};document.getElementById('etDel').onclick=async ()=>{if(!confirm('Delete this task?'))return;try{await fetch(`https://my-backend-ptmb.onrender.com/api/tasks/${taskId}`,{method:'DELETE',headers:{'Authorization':`Bearer ${state.authToken}`}});toast('Task deleted');closeModal();state.isDataLoaded=false;render();}catch(err){toast('Error: '+err.message);}};}
 
 // ============================================================
-//  LOGIN & SET PASSWORD (Branded)
+//  STEP 2 FIX: LOGIN MEIN CLIENT ROLE SET KAREIN
 // ============================================================
 function renderLogin() {
   const logoUrl = 'https://vibe.filesafe.space/1781548817483658086/attachments/4f7e2bb5-46d6-459e-8104-44ee1ccee4c0.webp';
@@ -1297,7 +1281,6 @@ function renderLogin() {
     });
   }
 
-  // ===== LOGIN BUTTON HANDLER (UPDATED) =====
   document.getElementById('loginBtn').onclick = async () => {
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value.trim();
@@ -1319,43 +1302,9 @@ function renderLogin() {
       
       state.authToken = data.token;
       state.authUser = data.user;
-      // 🔥 FIX: Client role set karein (yehi line add ki gayi hai)
+      // 🔥 STEP 2 FIX: Client role set karo
       state.role = data.user.role;
       
-      localStorage.setItem('va_token', data.token);
-      localStorage.setItem('va_user', JSON.stringify(data.user));
-      state.isLoggedIn = true;
-      state.view = data.user.role === 'client' ? 'clienthome' : 'dashboard';
-      state.isDataLoaded = false;
-      
-      toast('Login successful!', 'brand');
-      render();
-    } catch(err) {
-      errorDiv.textContent = err.message;
-    }
-  };
-}
-  document.getElementById('loginBtn').onclick = async () => {
-    const email = document.getElementById('loginEmail').value.trim();
-    const password = document.getElementById('loginPassword').value.trim();
-    const errorDiv = document.getElementById('loginError');
-    
-    if (!email || !password) {
-      errorDiv.textContent = 'Please fill all fields.';
-      return;
-    }
-    
-    try {
-      const res = await fetch('https://my-backend-ptmb.onrender.com/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Login failed');
-      
-      state.authToken = data.token;
-      state.authUser = data.user;
       localStorage.setItem('va_token', data.token);
       localStorage.setItem('va_user', JSON.stringify(data.user));
       state.isLoggedIn = true;
@@ -1405,7 +1354,7 @@ function renderSetPassword(token, email) {
 }
 
 // ============================================================
-//  GLOBAL EVENTS
+//  GLOBAL EVENTS & INIT
 // ============================================================
 document.addEventListener('click',function(e){
   const nav=e.target.closest('[data-nav]');
@@ -1435,9 +1384,6 @@ const gs=document.getElementById('globalSearch'),sd=document.getElementById('sea
 gs.oninput=()=>{const q=gs.value.toLowerCase().trim();if(!q){sd.classList.remove('show');return;}const hits=state.clients.filter(c=>c.name.toLowerCase().includes(q)).slice(0,6);sd.innerHTML=hits.length?hits.map(c=>'<button data-goto="'+c.id+'"><span class="ca" style="width:28px;height:28px;font-size:11px">'+initials(c.name)+'</span><div><div style="font-weight:700">'+c.name+'</div><div class="ce">'+fmt(remaining(c))+'h remaining</div></div></button>').join(''):'<button disabled style="color:var(--slate)">No clients found</button>';sd.classList.add('show');sd.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>{state.detailId=b.dataset.goto;state.view='clientDetail';gs.value='';sd.classList.remove('show');render();});};
 document.addEventListener('click',e=>{if(!sd.contains(e.target)&&e.target!==gs)sd.classList.remove('show');});
 
-// ============================================================
-//  INIT
-// ============================================================
 state.team.forEach(m=>{
   if(!state.userTimers[m.id]){
     state.userTimers[m.id]={isRunning:false,isOnBreak:false,workingStart:null,breakStart:null,totalWorking:0,totalBreak:0,status:'stopped'};
