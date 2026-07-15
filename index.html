@@ -692,7 +692,7 @@ async function loadData() {
       state.clients = Array.isArray(data) ? data.map(c => ({ ...c, id: c._id })) : [];
       console.log('✅ Clients loaded:', state.clients.length);
     } else {
-      console.warn('⚠️ Clients API returned:', res.status, await res.text());
+      console.warn('⚠️ Clients API returned:', res.status);
       state.clients = [];
     }
   } catch (err) {
@@ -708,7 +708,7 @@ async function loadData() {
       state.tasks = Array.isArray(data) ? data.map(t => ({ ...t, id: t._id })) : [];
       console.log('✅ Tasks loaded:', state.tasks.length);
     } else {
-      console.warn('⚠️ Tasks API returned:', res.status, await res.text());
+      console.warn('⚠️ Tasks API returned:', res.status);
       state.tasks = [];
     }
   } catch (err) {
@@ -724,7 +724,7 @@ async function loadData() {
       state.team = Array.isArray(data) ? data.map(u => ({ ...u, id: u._id })) : [];
       console.log('✅ Team loaded:', state.team.length);
     } else {
-      console.warn('⚠️ Team API returned:', res.status, await res.text());
+      console.warn('⚠️ Team API returned:', res.status);
       state.team = [];
     }
   } catch (err) {
@@ -738,12 +738,11 @@ async function loadData() {
 }
 
 // ============================================================
-//  TIMER FUNCTIONS
+//  TIMER FUNCTIONS (SHORT)
 // ============================================================
 function getUserTimer(userId){ if(!state.userTimers[userId]){ state.userTimers[userId]={isRunning:false,isOnBreak:false,workingStart:null,breakStart:null,totalWorking:0,totalBreak:0,status:'stopped'}; } return state.userTimers[userId]; }
 function getUserWorkSeconds(userId){ const t=getUserTimer(userId); let s=t.totalWorking; if(t.isRunning&&!t.isOnBreak&&t.workingStart){s+=(Date.now()-t.workingStart)/1000;} return s; }
 function getUserBreakSeconds(userId){ const t=getUserTimer(userId); let s=t.totalBreak; if(t.isOnBreak&&t.breakStart){s+=(Date.now()-t.breakStart)/1000;} return s; }
-function getUserTimerStatus(userId){ const t=getUserTimer(userId); if(t.isRunning&&t.isOnBreak) return 'break'; if(t.isRunning) return 'running'; return 'stopped'; }
 function getWorkSeconds(){return getUserWorkSeconds(state.worker);}
 function getBreakSeconds(){return getUserBreakSeconds(state.worker);}
 function formatTime(sec){const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=Math.floor(sec%60);return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}
@@ -786,24 +785,21 @@ function render(){
     try {
       state.authToken = savedToken;
       state.authUser = JSON.parse(savedUser);
-      // 🔥 FIX: Role restore karein (Client/Admin dono ke liye)
       state.role = state.authUser.role;
+      state.clientId = state.authUser.clientId || null;
       state.isLoggedIn = true;
       state.isDataLoaded = false;
-      state.clientId = state.authUser.clientId || null;
-      // Agar client hai toh view clienthome set karein
       if (state.role === 'client') state.view = 'clienthome';
       else state.view = 'dashboard';
-      console.log('✅ Session restored from localStorage');
+      console.log('✅ Session restored');
     } catch (e) {
-      console.error('❌ Failed to restore session', e);
+      console.error('❌ Session restore failed', e);
     }
   }
 
-  // ===== SIDEBAR AUR TOPBAR KO SAHI TAREEQE SE HIDE/SHOW KAREIN =====
+  // ===== SIDEBAR AUR TOPBAR =====
   const sidebar = document.getElementById('sidebar');
   const topbar = document.querySelector('.topbar');
-  
   if (!state.isLoggedIn) {
     if (sidebar) sidebar.style.display = 'none';
     if (topbar) topbar.style.display = 'none';
@@ -812,7 +808,7 @@ function render(){
     if (topbar) topbar.style.display = '';
   }
 
-  // ===== ROLE SWITCHER (Sirf Admin ko dikhe) =====
+  // ===== ROLE SWITCHER (Sirf Admin ko) =====
   const roleSwitcher = document.getElementById('roleSwitch');
   const roleLabel = document.getElementById('roleSwitcherLabel');
   if (state.role === 'admin') {
@@ -834,7 +830,7 @@ function render(){
     return;
   }
 
-  // ===== LOAD DATA IF NEEDED =====
+  // ===== LOAD DATA =====
   if (state.isLoggedIn && !state.isDataLoaded) {
     loadData();
     return;
@@ -853,8 +849,11 @@ function render(){
   const avatarEl = document.getElementById('navAvatar');
   if (state.profile.avatar && (state.role === 'user' || state.role === 'admin' || state.role === 'coadmin')) {
     avatarEl.innerHTML = `<img src="${state.profile.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+  } else if (state.role === 'client') {
+    const c = curClient();
+    avatarEl.textContent = c ? initials(c.name) : 'C';
   } else {
-    avatarEl.textContent = state.role === 'client' ? initials(curClient().name) : state.role === 'user' ? initials(state.worker) : state.role === 'coadmin' ? 'SM' : 'A';
+    avatarEl.textContent = state.role === 'user' ? initials(state.worker) : state.role === 'coadmin' ? 'SM' : 'A';
   }
   renderBell();
   if (state.view === 'settings' && state.role !== 'admin') state.view = 'dashboard';
@@ -871,7 +870,7 @@ function render(){
 function renderBell(){const n=lowClients().length,badge=document.getElementById('bellBadge');badge.textContent=n;badge.style.display=n?'grid':'none';const list=document.getElementById('notifList');if(!n){list.innerHTML='<li style="color:var(--slate);font-size:13px">All clear — no clients below '+state.threshold+' hours.</li>';return;}list.innerHTML=lowClients().sort((a,b)=>remaining(a)-remaining(b)).map(c=>{const crit=status(c)==='crit';return '<li><span class="ni '+(crit?'crit':'')+'">'+(crit?'✕':'!')+'</span><div><div class="nt">'+c.name+'</div><div class="nd">'+(crit?'Out of hours — needs a top-up':fmt(remaining(c))+' hours left (below '+state.threshold+')')+'</div></div></li>';}).join('');}
 
 // ============================================================
-//  DASHBOARD, CLIENTS, REPORTS, INVOICES, TEAM, SETTINGS, LIVE, CLIENT, USER, WORKER, PROFILE, TASKS
+//  DASHBOARD
 // ============================================================
 function renderDashboard(){
   const cs=state.clients,sold=cs.reduce((a,c)=>a+c.purchased,0),used=cs.reduce((a,c)=>a+c.consumed,0),low=lowClients().length;
@@ -881,8 +880,10 @@ function renderDashboard(){
   document.getElementById('qLog').onclick=()=>openLog();document.getElementById('qPurchase').onclick=()=>openPurchaseIntake();
 }
 
+// ============================================================
+//  RENDER CLIENT (SAFE VERSION - NO DUPLICATE)
+// ============================================================
 function renderClient(){
-  // Agar clients empty hain toh message dikhayein
   if (!state.clients || state.clients.length === 0) {
     app.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">Client portal</div><h1>Your Hours</h1></div></div>
@@ -957,6 +958,29 @@ function renderClient(){
   });
   wireDateFilter('cliDate', (from, to) => { state.clientDateFrom = from; state.clientDateTo = to; renderClient(); });
 }
+
+// ============================================================
+//  RENDER CLIENTS, DETAIL, REPORTS, INVOICES, TEAM, SETTINGS, LIVE, USER, WORKER, PROFILE, TASKS
+// ============================================================
+function renderClients(){
+  const cs=state.clients,isAdmin=state.role==='admin'||state.role==='coadmin';
+  let fil=cs.filter(c=>c.name.toLowerCase().includes(state.search.toLowerCase()));
+  if(state.filter!=='all')fil=fil.filter(c=>status(c)===state.filter);
+  const S={remaining:(a,b)=>remaining(a)-remaining(b),name:(a,b)=>a.name.localeCompare(b.name),consumed:(a,b)=>b.consumed-a.consumed,purchased:(a,b)=>b.purchased-a.purchased};
+  fil.sort(S[state.sort]);
+  const cnt={all:cs.length,ok:cs.filter(c=>status(c)==='ok').length,low:cs.filter(c=>status(c)==='low').length,crit:cs.filter(c=>status(c)==='crit').length};
+  app.innerHTML='<div class="page-head"><div><div class="eyebrow">Clients</div><h1>All clients</h1><p>'+cs.length+' clients · each with its own hours sheet.</p></div><div class="head-actions"><button class="btn ghost sm" id="exportBtn">⬇ Export CSV</button>'+(isAdmin?'<button class="btn" id="addBtn">＋ Add client</button>':'')+'</div></div><div class="panel"><div class="panel-head"><div class="filter-tabs" id="filterTabs">'+[['all','All '+cnt.all],['ok','Healthy '+cnt.ok],['low','Low '+cnt.low],['crit','Out '+cnt.crit]].map(([v,l])=>'<button data-f="'+v+'" class="'+(state.filter===v?'on':'')+'">'+l+'</button>').join('')+'</div><div class="ph-spacer"></div><div class="search"><span>🔍</span><input id="searchInp" placeholder="Search" value="'+state.search+'"></div><select class="sel" id="sortSel"><option value="remaining"'+(state.sort==='remaining'?' selected':'')+'>Least remaining</option><option value="name"'+(state.sort==='name'?' selected':'')+'>Name (A–Z)</option><option value="consumed"'+(state.sort==='consumed'?' selected':'')+'>Most consumed</option><option value="purchased"'+(state.sort==='purchased'?' selected':'')+'>Most purchased</option></select></div>'+(fil.length?'<table><thead><tr><th>Client</th><th>Balance</th><th>Consumed</th><th>Remaining</th><th>Status</th><th></th></tr></thead><tbody>'+fil.map(c=>{const s=status(c);return '<tr class="clickable" data-open="'+c.id+'"><td><div class="cli"><span class="ca">'+initials(c.name)+'</span><div><div class="cn">'+c.name+'</div><div class="ce">'+c.email+'</div></div></div></td><td><div class="gauge"><div class="track"><div class="fill" style="width:'+pct(c)+'%;background:'+(s==='ok'?'var(--grad)':statusColor(s))+'"></div></div><div class="cap num">'+fmt(remaining(c))+' of '+fmt(c.purchased)+'h</div></div></td><td class="num">'+fmt(c.consumed)+'h</td><td class="num" style="font-weight:800">'+fmt(remaining(c))+'h</td><td><span class="pill '+s+'"><span class="d"></span>'+statusLabel(s)+'</span></td><td><div class="row-actions"><button class="icon-btn" data-log="'+c.id+'">⏱</button><button class="icon-btn" data-add="'+c.id+'">＋</button>'+(isAdmin?'<button class="icon-btn" data-edit="'+c.id+'">✎</button>':'')+'</div></td></tr>';}).join('')+'</tbody></table>':'<div class="empty"><div class="big">No clients here</div>Try a different filter or search.</div>')+'</div>';
+  const si=document.getElementById('searchInp');if(si)si.oninput=e=>{state.search=e.target.value;renderClients();};
+  const ss=document.getElementById('sortSel');if(ss)ss.onchange=e=>{state.sort=e.target.value;renderClients();};
+  app.querySelectorAll('#filterTabs button').forEach(b=>b.onclick=()=>{state.filter=b.dataset.f;renderClients();});
+  document.getElementById('exportBtn').onclick=exportCSV;
+  document.getElementById('addBtn')?.addEventListener('click',openAdd);
+  app.querySelectorAll('[data-open]').forEach(r=>r.onclick=()=>{state.detailId=r.dataset.open;state.view='clientDetail';render();});
+  app.querySelectorAll('[data-log]').forEach(b=>b.onclick=e=>{e.stopPropagation();openLog(b.dataset.log);});
+  app.querySelectorAll('[data-add]').forEach(b=>b.onclick=e=>{e.stopPropagation();openBuy(b.dataset.add);});
+  app.querySelectorAll('[data-edit]').forEach(b=>b.onclick=e=>{e.stopPropagation();openEdit(b.dataset.edit);});
+}
+
 function renderDetail(){
   const c=state.clients.find(x=>x.id===state.detailId);
   if(!c){state.view='clients';return renderClients();}
@@ -987,9 +1011,7 @@ function renderInvoices(){
 }
 
 function renderTeam(){
-  if(state.role!=='admin' && state.role!=='coadmin'){
-    state.view='dashboard'; render(); return;
-  }
+  if(state.role!=='admin' && state.role!=='coadmin'){ state.view='dashboard'; render(); return; }
   const roleOpts=['admin','coadmin','user','client'];
   const isOwner=state.role==='admin';
   app.innerHTML='<div class="page-head"><div><div class="eyebrow">'+(isOwner?'Owner':'Admin')+' Access</div><h1>Team & Access</h1><p>'+(isOwner?'Full control over team members.':'Manage team members.')+'</p></div>'+(isOwner?'<div class="head-actions"><button class="btn" id="inviteBtn">＋ Invite member</button></div>':'')+'</div><div class="info-note"><span>🔐</span><div><b>Access levels.</b> Owner — full control. Admin — clients, hours, reports & invoices; no team/settings. User — staff who log hours worked each day. Client — sees only their own sheet, never other clients or users.</div></div><div class="panel"><table><thead><tr><th>Member</th><th>Email</th><th>Role</th><th>Linked client</th><th>Status</th><th></th></tr></thead><tbody>'+state.team.map(m=>'<tr><td><div class="cli"><span class="ca '+(m.role==='admin'?'grad':'')+'">'+initials(m.name)+'</span><div class="cn">'+m.name+'</div></div></td><td class="ce">'+m.email+'</td><td><select class="sel" data-role-for="'+m.id+'" '+(m.email===state.authUser?.email||!isOwner?'disabled':'')+'>'+roleOpts.map(r=>'<option value="'+r+'"'+(m.role===r?' selected':'')+'>'+roleLabel(r)+'</option>').join('')+'</select></td><td class="ce">'+(m.role==='client'?((state.clients.find(c=>c.id===m.clientId)||{}).name||'—'):m.role==='user'?((m.assigned||[]).length+' clients'):'—')+'</td><td><span class="pill '+(m.status==='active'?'ok':'low')+'"><span class="d"></span>'+(m.status==='active'?'Active':'Invited')+'</span></td><td><div class="row-actions">'+(m.role==='user'&&isOwner?'<button class="icon-btn" data-assign="'+m.id+'">👥</button>':'')+(m.email===state.authUser?.email?'<span class="ce">You</span>':(isOwner?'<button class="icon-btn" data-rm="'+m.id+'">🗑</button>':''))+'</div></td></tr>').join('')+'</tbody></table></div>';
@@ -1158,15 +1180,6 @@ function renderLiveActivity(){
   }
 }
 
-function renderClient(){
-  const c=curClient(),s=status(c),C=2*Math.PI*82,off=C*(1-pct(c)/100);
-  const logs=filterByDate(clientLogs(c.id),state.clientDateFrom,state.clientDateTo);
-  app.innerHTML='<div class="page-head"><div><div class="eyebrow">Client portal</div><h1>Your hours</h1><p>Signed in as '+c.name+'.</p></div></div><div class="client-grid"><div class="hero"><span class="diamond d1"></span><span class="diamond d2"></span><div class="donut-wrap"><svg width="200" height="200" viewBox="0 0 200 200"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1A2A4A"/><stop offset="1" stop-color="#4A7A9E"/></linearGradient></defs><circle cx="100" cy="100" r="82" fill="none" stroke="var(--canvas)" stroke-width="17"/><circle cx="100" cy="100" r="82" fill="none" stroke="'+(s==='ok'?'url(#g)':statusColor(s))+'" stroke-width="17" stroke-linecap="round" stroke-dasharray="'+C+'" stroke-dashoffset="'+off+'" transform="rotate(-90 100 100)" style="transition:stroke-dashoffset .7s ease"/></svg><div class="donut-center"><div class="big num" style="color:'+(s==='ok'?'#2C4A6E':statusColor(s))+'">'+fmt(remaining(c))+'</div><div class="sub">hours left</div></div></div><span class="pill '+s+'"><span class="d"></span>'+statusLabel(s)+'</span><div class="breakdown"><div class="b"><div class="bn num">'+fmt(c.purchased)+'</div><div class="bl">Purchased</div></div><div class="b"><div class="bn num">'+fmt(c.consumed)+'</div><div class="bl">Consumed</div></div><div class="b"><div class="bn num" style="color:var(--highlight)">'+fmt(remaining(c))+'</div><div class="bl">Remaining</div></div></div></div><div><div class="side-card"><h3>Need more hours?</h3><p>Top up your balance in a few clicks.</p><a class="btn" href="https://hire.virtualally.io/purchase-hours" target="_blank" style="width:100%;justify-content:center">＋ Purchase hours</a></div><div class="side-card refer-box"><h3>Refer a friend 🎁</h3><p>Share your link — you both get 5 bonus hours.</p><button class="btn ghost" style="width:100%;justify-content:center" id="referBtn">Get referral link</button></div></div></div>'+
-  '<div class="panel" style="margin-top:20px"><div class="panel-head"><h2>Your Timesheet</h2><div class="ph-spacer"></div>'+dateFilterBar('cliDate',state.clientDateFrom,state.clientDateTo)+'</div>'+timesheetTable(logs,false,true)+'</div>';
-  document.getElementById('referBtn')?.addEventListener('click',()=>{const link='https://app.virtualally.io/r/'+c.id.toUpperCase()+'-'+Math.random().toString(36).slice(2,7);navigator.clipboard?.writeText(link);toast('Referral link copied!','brand');});
-  wireDateFilter('cliDate',(from,to)=>{state.clientDateFrom=from;state.clientDateTo=to;renderClient();});
-}
-
 function renderUserDashboard(){
   const me=state.team.find(x=>x.name===state.worker&&x.role==='user');
   const myTasks=state.tasks.filter(t=>t.assignedTo&&t.assignedTo.includes(me?.id||''));
@@ -1268,7 +1281,6 @@ function toast(msg,kind){const w=document.getElementById('toastWrap'),t=document
 function openLog(id){const by=state.worker||'You';showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Log hours</h3></div><div class="modal-body"><div class="field-m"><label>Client</label><select id="logClient">'+state.clients.map(c=>'<option value="'+c.id+'"'+(c.id===id?' selected':'')+'>'+c.name+' — '+fmt(remaining(c))+'h left</option>').join('')+'</select></div><div style="display:flex;gap:12px"><div class="field-m" style="flex:1"><label>Date</label><input type="date" id="logDate" value="'+todayStr()+'"></div><div class="field-m" style="flex:1"><label>Hours</label><input type="number" id="logHours" min="0.25" step="0.25"></div></div><div class="field-m"><label>Note</label><input id="logNote"></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="logDo">Log hours</button></div>');document.getElementById('logDo').onclick=()=>{const cid=document.getElementById('logClient').value,h=+document.getElementById('logHours').value,date=document.getElementById('logDate').value||todayStr(),note=document.getElementById('logNote').value.trim(),c=state.clients.find(x=>x.id===cid);if(!h||h<=0){toast('Enter hours');return;}c.consumed+=h;state.logs.unshift({id:'l'+Date.now(),clientId:cid,date,hours:h,note,by});toast('Logged '+fmtHM(h)+' for '+c.name,'brand');closeModal();render();};}
 function openBuy(id){const c=state.clients.find(x=>x.id===id);showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Add hours</h3></div><div class="modal-body"><div class="field-m"><label>Hours</label><input type="number" id="buyH" min="1" value="20"></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="buyDo">Add</button></div>');document.getElementById('buyDo').onclick=()=>{const h=+document.getElementById('buyH').value||0;if(h<=0){toast('Enter hours');return;}c.purchased+=h;toast('Added '+h+' hours','brand');closeModal();render();};}
 
-// STEP 1 FIX: Extra Client Field Hat Gayi
 function openInvite(){
   showModal(`<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Invite member</h3></div><div class="modal-body"><div class="field-m"><label>Name</label><input id="iName"></div><div class="field-m"><label>Email</label><input id="iEmail"></div><div class="field-m"><label>Role</label><select id="iRole"><option value="coadmin">Admin</option><option value="user">User</option><option value="client">Client</option></select></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="invDo">Send Invite</button></div>`);
   document.getElementById('invDo').onclick = async () => {
@@ -1325,7 +1337,7 @@ function openNewTask(){showModal('<button class="close-x" onclick="closeModal()"
 function openTaskEdit(taskId){const t=state.tasks.find(x=>x.id===taskId);if(!t)return;const clientOpts=state.clients.map(c=>'<option value="'+c.id+'"'+(c.id===t.clientId?' selected':'')+'>'+c.name+'</option>').join('');const assignOpts=state.team.filter(m=>m.role==='user'||m.role==='admin'||m.role==='coadmin').map(m=>'<option value="'+m.id+'"'+(t.assignedTo&&t.assignedTo.includes(m.id)?' selected':'')+'>'+m.name+'</option>').join('');const statusOpts=statusOptions.map(s=>'<option value="'+s.value+'"'+(t.status===s.value?' selected':'')+'>'+s.label+'</option>').join('');showModal('<button class="close-x" onclick="closeModal()">×</button><div class="modal-head"><h3>Edit Task</h3></div><div class="modal-body"><div class="field-m"><label>Title</label><input id="etTitle" value="'+t.title.replace(/"/g,'&quot;')+'"></div><div class="field-m"><label>Description</label><textarea id="etDesc" rows="3">'+(t.description||'').replace(/"/g,'&quot;')+'</textarea></div><div class="field-m"><label>Client</label><select id="etClient">'+clientOpts+'</select></div><div class="field-m"><label>Assign to (multiple)</label><select id="etAssign" multiple size="3">'+assignOpts+'</select></div><div style="display:flex;gap:12px"><div class="field-m" style="flex:1"><label>Status</label><select id="etStatus">'+statusOpts+'</select></div><div class="field-m" style="flex:1"><label>Priority</label><select id="etPriority"><option value="low"'+(t.priority==='low'?' selected':'')+'>Low</option><option value="medium"'+(t.priority==='medium'?' selected':'')+'>Medium</option><option value="high"'+(t.priority==='high'?' selected':'')+'>High</option></select></div></div><div class="field-m"><label>Due Date</label><input type="date" id="etDue" value="'+(t.dueDate||'')+'"></div><div class="field-m"><label>Tags (comma separated)</label><input id="etTags" value="'+(t.tags?t.tags.join(', '):'')+'"></div></div><div class="modal-foot"><button class="btn ghost" onclick="closeModal()" style="margin-right:auto;color:var(--highlight);border-color:var(--red-soft)" id="etDel">Delete</button><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="etDo">Save</button></div>');document.getElementById('etDo').onclick=async ()=>{const payload={title:document.getElementById('etTitle').value.trim()||t.title,description:document.getElementById('etDesc').value.trim(),clientId:document.getElementById('etClient').value,assignedTo:Array.from(document.getElementById('etAssign').selectedOptions).map(o=>o.value),status:document.getElementById('etStatus').value,priority:document.getElementById('etPriority').value,dueDate:document.getElementById('etDue').value||'',tags:document.getElementById('etTags').value.split(',').map(s=>s.trim()).filter(Boolean)};try{const res=await fetch(`https://my-backend-ptmb.onrender.com/api/tasks/${taskId}`,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.authToken}`},body:JSON.stringify(payload)});if(!res.ok)throw new Error('Failed to update');toast('Task updated!','brand');closeModal();state.isDataLoaded=false;render();}catch(err){toast('Error: '+err.message);}};document.getElementById('etDel').onclick=async ()=>{if(!confirm('Delete this task?'))return;try{await fetch(`https://my-backend-ptmb.onrender.com/api/tasks/${taskId}`,{method:'DELETE',headers:{'Authorization':`Bearer ${state.authToken}`}});toast('Task deleted');closeModal();state.isDataLoaded=false;render();}catch(err){toast('Error: '+err.message);}};}
 
 // ============================================================
-//  STEP 2 FIX: LOGIN MEIN CLIENT ROLE SET KAREIN
+//  LOGIN & SET PASSWORD
 // ============================================================
 function renderLogin() {
   const logoUrl = 'https://vibe.filesafe.space/1781548817483658086/attachments/4f7e2bb5-46d6-459e-8104-44ee1ccee4c0.webp';
@@ -1388,7 +1400,6 @@ function renderLogin() {
       state.authToken = data.token;
       state.authUser = data.user;
       state.role = data.user.role;
-      // 🔥 FIX: ClientId set karein (client ke liye important)
       state.clientId = data.user.clientId || null;
 
       localStorage.setItem('va_token', data.token);
@@ -1404,6 +1415,7 @@ function renderLogin() {
     }
   };
 }
+
 function renderSetPassword(token, email) {
   const logoUrl = 'https://vibe.filesafe.space/1781548817483658086/attachments/4f7e2bb5-46d6-459e-8104-44ee1ccee4c0.webp';
   app.innerHTML = `
